@@ -231,6 +231,7 @@ const markerLayer = L.layerGroup().addTo(map);
 
 const infoPanel = document.getElementById('projectInfoPanel');
 const closeInfoPanelButton = document.getElementById('closeInfoPanel');
+const projectPhotoFrame = document.getElementById('projectPhotoFrame');
 const projectPhoto = document.getElementById('projectPhoto');
 const panelProjectName = document.getElementById('panelProjectName');
 const projectStatus = document.getElementById('projectStatus');
@@ -250,6 +251,7 @@ const mobileLayoutQuery = window.matchMedia('(max-width: 992px)');
 
 let activeProject = null;
 let activeMarker = null;
+let photoLoadToken = 0;
 
 const boundaryPolygon = L.polygon(boundaryCoords, {
   color: '#1e40af',
@@ -285,10 +287,59 @@ function updateHeaderHeight() {
 updateHeaderHeight();
 window.addEventListener('resize', updateHeaderHeight);
 
+function setProjectPhotoLoading(isLoading) {
+  projectPhotoFrame?.classList.toggle('is-loading', isLoading);
+  projectPhotoFrame?.setAttribute('aria-busy', String(isLoading));
+  projectPhoto.style.cursor = isLoading ? 'default' : projectPhoto.style.cursor;
+}
+
+function clearProjectPhoto() {
+  projectPhoto.removeAttribute('src');
+  projectPhoto.alt = '';
+  projectPhoto.style.cursor = 'default';
+}
+
+function loadProjectPhoto(project) {
+  const token = ++photoLoadToken;
+  const photoSrc = project.photo || DEFAULT_PROJECT_PHOTO;
+  const photoAlt = project.photo ? `${project.title} photo` : 'Project photo placeholder';
+  const showLoadedPhoto = (src, alt, isProjectPhoto) => {
+    if (token !== photoLoadToken) return;
+
+    projectPhoto.src = src;
+    projectPhoto.alt = alt;
+    projectPhoto.style.cursor = isProjectPhoto ? 'pointer' : 'default';
+    setProjectPhotoLoading(false);
+  };
+  const showPhotoUnavailable = () => {
+    if (token !== photoLoadToken) return;
+
+    clearProjectPhoto();
+    setProjectPhotoLoading(false);
+  };
+
+  clearProjectPhoto();
+  setProjectPhotoLoading(true);
+
+  const loader = new Image();
+  loader.onload = () => showLoadedPhoto(photoSrc, photoAlt, Boolean(project.photo));
+  loader.onerror = () => {
+    if (photoSrc === DEFAULT_PROJECT_PHOTO) {
+      showPhotoUnavailable();
+      return;
+    }
+
+    const fallbackLoader = new Image();
+    fallbackLoader.onload = () => showLoadedPhoto(DEFAULT_PROJECT_PHOTO, 'Project photo placeholder', false);
+    fallbackLoader.onerror = showPhotoUnavailable;
+    fallbackLoader.src = DEFAULT_PROJECT_PHOTO;
+  };
+  loader.src = photoSrc;
+}
+
 function openInfoPanel(project) {
   activeProject = project;
-  projectPhoto.src = project.photo || DEFAULT_PROJECT_PHOTO;
-  projectPhoto.alt = project.photo ? `${project.title} photo` : 'Project photo placeholder';
+  loadProjectPhoto(project);
   panelProjectName.textContent = displayValue(project.title, 'Unknown project');
   projectStatus.textContent = project.statusLabel || statusLabels.unknown;
   panelProjectAddress.textContent = displayValue(project.address);
@@ -299,7 +350,6 @@ function openInfoPanel(project) {
   projectDistrict.textContent = displayValue(project.district);
   projectDescription.textContent = displayValue(project.description);
   projectStatus.style.setProperty('--status-color', statusColors[project.status] || statusColors.unknown);
-  projectPhoto.style.cursor = project.photo ? 'pointer' : 'default';
   document.body.classList.add('info-panel-open');
   infoPanel.classList.add('open');
   infoPanel.setAttribute('aria-hidden', 'false');
@@ -316,8 +366,8 @@ function closeInfoPanel() {
 }
 
 function openImageModal() {
-  if (!activeProject) return;
-  modalImage.src = activeProject.photo || projectPhoto.src;
+  if (!activeProject || projectPhotoFrame?.classList.contains('is-loading') || !projectPhoto.currentSrc) return;
+  modalImage.src = projectPhoto.currentSrc || projectPhoto.src;
   modalCaption.textContent = activeProject.title || 'Project image';
   imageModal.classList.add('open');
   imageModal.setAttribute('aria-hidden', 'false');

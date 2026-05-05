@@ -113,7 +113,10 @@
           <button id="closeInfoPanel" aria-label="Close project details">&times;</button>
         </div>
         <div class="panel-body">
-          <img id="projectPhoto" src="" alt="Project photo" />
+          <div class="project-photo-frame" id="projectPhotoFrame" aria-busy="false">
+            <img id="projectPhoto" src="" alt="Project photo" />
+            <div class="project-photo-loader" aria-hidden="true"></div>
+          </div>
           <div class="panel-row description-row">
             <div class="panel-label">Description</div>
             <div id="projectDescription" class="panel-value"></div>
