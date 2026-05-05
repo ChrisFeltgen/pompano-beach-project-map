@@ -1,0 +1,253 @@
+body {
+  height: auto;
+  min-height: 100vh;
+  overflow: auto;
+}
+
+main.admin-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: calc(100vh - var(--header-height, 136px));
+  padding: 24px;
+  overflow: visible;
+}
+
+.admin-toolbar,
+.admin-list-panel,
+.admin-editor {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(31, 41, 51, 0.06);
+}
+
+.admin-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+}
+
+.admin-toolbar h1 {
+  margin: 0;
+  color: var(--city-blue);
+  font-size: clamp(1.35rem, 2vw, 1.9rem);
+}
+
+.admin-toolbar p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+.admin-actions,
+.editor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 18px;
+  min-height: 0;
+}
+
+.admin-list-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-list-panel__header {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-list-panel__header label {
+  color: var(--city-blue);
+  font-weight: 700;
+}
+
+.admin-list-panel input,
+.field-control,
+.field-textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+}
+
+.admin-list-panel input,
+.field-control {
+  min-height: 42px;
+  padding: 9px 10px;
+}
+
+.field-textarea {
+  min-height: 128px;
+  padding: 10px;
+  resize: vertical;
+}
+
+.project-count {
+  padding: 10px 16px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-project-list {
+  display: grid;
+  gap: 8px;
+  max-height: calc(100vh - 310px);
+  min-height: 240px;
+  margin: 0;
+  padding: 12px;
+  list-style: none;
+  overflow: auto;
+}
+
+.admin-project-list button {
+  width: 100%;
+  display: block;
+  text-align: left;
+}
+
+.admin-project-list button[aria-current="true"] {
+  border-color: var(--city-blue);
+  background: var(--city-blue);
+  color: #fff;
+}
+
+.admin-project-list .project-list-title {
+  display: block;
+  font-weight: 700;
+}
+
+.admin-project-list .project-list-meta {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.86rem;
+  opacity: 0.82;
+}
+
+.admin-editor {
+  min-width: 0;
+  padding: 18px;
+}
+
+.editor-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.field-group {
+  display: grid;
+  gap: 7px;
+}
+
+.field-group--wide {
+  grid-column: 1 / -1;
+}
+
+.field-group label {
+  color: var(--city-ink);
+  font-weight: 700;
+}
+
+.field-hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.empty-editor {
+  min-height: 80px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.editor-actions {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.primary-action {
+  border-color: var(--city-blue);
+  background: var(--city-blue);
+  color: #fff;
+}
+
+.primary-action:hover,
+.primary-action:focus-visible {
+  background: #245f73;
+  color: #fff;
+}
+
+.danger-action {
+  border-color: #dc2626;
+  color: #b91c1c;
+}
+
+.danger-action:hover,
+.danger-action:focus-visible {
+  background: #fee2e2;
+  border-color: #b91c1c;
+  color: #991b1b;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  main.admin-shell {
+    padding: 16px 0.75rem 20px;
+  }
+
+  .admin-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-actions,
+  .editor-actions {
+    justify-content: stretch;
+  }
+
+  .admin-actions button,
+  .editor-actions button {
+    flex: 1 1 140px;
+    text-align: center;
+  }
+
+  .admin-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-project-list {
+    max-height: 320px;
+  }
+
+  .editor-fields {
+    grid-template-columns: 1fr;
+  }
+}

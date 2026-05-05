@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Project Data Maintenance</title>
+  <link rel="shortcut icon" type="image/x-icon" href="https://www.pompanobeachfl.gov/pompanobeachfl/assets/images/favicon.ico?v=2" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <header class="city-site-header">
+    <a class="show-on-focus" href="#adminContent">Skip to Content</a>
+
+    <div class="city-site-header__main">
+      <a class="city-brand" href="index.html" aria-label="Development projects map home">
+        <img
+          src="https://www.pompanobeachfl.gov/pompanobeachfl/assets/images/sitewide/COPB_Logo.png"
+          alt="City of Pompano Beach Logo"
+          class="city-brand__logo"
+        />
+        <span class="city-brand__divider" aria-hidden="true"></span>
+        <span class="city-brand__welcome">
+          <span>Welcome to</span>
+          <strong>Pompano Beach</strong>
+        </span>
+      </a>
+
+      <nav class="city-nav" aria-label="Maintenance navigation">
+        <a href="index.html">Map</a>
+        <a href="admin.html">Maintenance</a>
+      </nav>
+    </div>
+
+    <div class="city-dept-bar" aria-label="Maintenance breadcrumb">
+      <div class="city-dept-bar__inner">
+        <a href="index.html">Development Projects Map</a>
+        <span class="city-dept-bar__separator" aria-hidden="true">/</span>
+        <span>Project Data Maintenance</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="admin-shell" id="adminContent">
+    <section class="admin-toolbar" aria-label="Project maintenance actions">
+      <div>
+        <h1>Project Data Maintenance</h1>
+        <p id="adminStatus">Loading projects...</p>
+      </div>
+      <div class="admin-actions">
+        <button id="reloadProjects" type="button">Reload</button>
+        <button id="exportProjects" type="button">Export JSON</button>
+        <button id="saveProjects" type="button" class="primary-action">Save Changes</button>
+      </div>
+    </section>
+
+    <section class="admin-layout">
+      <aside class="admin-list-panel" aria-label="Projects">
+        <div class="admin-list-panel__header">
+          <label for="projectSearch">Projects</label>
+          <input id="projectSearch" type="search" placeholder="Search projects..." />
+          <button id="addProject" type="button" class="primary-action">Add Project</button>
+        </div>
+        <div class="project-count" id="projectCount"></div>
+        <ul class="admin-project-list" id="adminProjectList"></ul>
+      </aside>
+
+      <section class="admin-editor" aria-label="Project editor">
+        <form id="projectEditorForm" autocomplete="off">
+          <div class="empty-editor" id="emptyEditor">
+            Select a project to edit its JSON fields.
+          </div>
+          <div class="editor-fields" id="editorFields" hidden></div>
+          <div class="editor-actions" id="editorActions" hidden>
+            <button id="deleteProject" type="button" class="danger-action">Delete Project</button>
+          </div>
+        </form>
+      </section>
+    </section>
+  </main>
+
+  <script src="admin.js"></script>
+</body>
+</html>
