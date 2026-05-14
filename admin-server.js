@@ -12,10 +12,37 @@ const mimeTypes = {
   '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.ico': 'image/x-icon',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+};
+
+const projectFields = {
+  title: '',
+  status: 'unknown',
+  address: '',
+  summary: '',
+  description: '',
+  completion: '',
+  photo: '',
+  valuation: '',
+  developer: '',
+  contractor: '',
+  lat: '',
+  lng: '',
+  district: '',
 };
 
 function sendJson(response, status, data) {
-  response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  response.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'X-Can-Save': 'true',
+    'X-Save-Method': 'POST',
+  });
   response.end(`${JSON.stringify(data, null, 2)}\n`);
 }
 
@@ -37,32 +64,31 @@ function readRequestBody(request) {
 }
 
 function normalizeProject(project) {
-  return {
-    title: project.title || '',
-    status: project.status || 'unknown',
-    address: project.address || '',
-    summary: project.summary || '',
-    description: project.description || '',
-    completion: project.completion || '',
-    photo: project.photo || '',
-    valuation: project.valuation || '',
-    developer: project.developer || '',
-    contractor: project.contractor || '',
-    lat: project.lat || '',
-    lng: project.lng || '',
-    district: project.district || '',
-  };
+  const normalized = { ...project };
+
+  Object.entries(projectFields).forEach(([key, fallback]) => {
+    normalized[key] = project[key] === null || project[key] === undefined || String(project[key]).trim() === ''
+      ? fallback
+      : String(project[key]);
+  });
+
+  return normalized;
 }
 
 async function handleProjectsApi(request, response) {
   if (request.method === 'GET') {
     const content = await fs.promises.readFile(projectsFile, 'utf8');
-    response.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    response.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'X-Can-Save': 'true',
+      'X-Save-Method': 'POST',
+    });
     response.end(content);
     return;
   }
 
-  if (request.method === 'PUT') {
+  if (request.method === 'POST' || request.method === 'PUT') {
     const body = await readRequestBody(request);
     const data = JSON.parse(body);
 
@@ -77,7 +103,7 @@ async function handleProjectsApi(request, response) {
     return;
   }
 
-  response.writeHead(405, { Allow: 'GET, PUT' });
+  response.writeHead(405, { Allow: 'GET, POST, PUT' });
   response.end('Method Not Allowed');
 }
 

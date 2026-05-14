@@ -32,6 +32,7 @@ const statusLabels = {
 };
 
 const DEFAULT_PROJECT_PHOTO = 'images/project-placeholder.png';
+const PROJECT_API_CANDIDATES = ['api/projects.php', 'api/projects'];
 
 function normalizeProjectStatus(status) {
   const value = String(status || '').trim().toLowerCase();
@@ -56,6 +57,16 @@ function hasValue(value) {
 
 function displayValue(value, fallback = 'TBD') {
   return hasValue(value) ? String(value).trim() : fallback;
+}
+
+function resolveAssetUrl(assetPath) {
+  const path = hasValue(assetPath) ? String(assetPath).trim() : DEFAULT_PROJECT_PHOTO;
+
+  try {
+    return new URL(path, window.location.href).toString();
+  } catch {
+    return path;
+  }
 }
 
 function getProjectPopupText(project) {
@@ -301,8 +312,10 @@ function clearProjectPhoto() {
 
 function loadProjectPhoto(project) {
   const token = ++photoLoadToken;
-  const photoSrc = project.photo || DEFAULT_PROJECT_PHOTO;
-  const photoAlt = project.photo ? `${project.title} photo` : 'Project photo placeholder';
+  const hasProjectPhoto = hasValue(project.photo);
+  const photoSrc = resolveAssetUrl(hasProjectPhoto ? project.photo : DEFAULT_PROJECT_PHOTO);
+  const fallbackSrc = resolveAssetUrl(DEFAULT_PROJECT_PHOTO);
+  const photoAlt = hasProjectPhoto ? `${project.title} photo` : 'Project photo placeholder';
   const showLoadedPhoto = (src, alt, isProjectPhoto) => {
     if (token !== photoLoadToken) return;
 
@@ -322,17 +335,17 @@ function loadProjectPhoto(project) {
   setProjectPhotoLoading(true);
 
   const loader = new Image();
-  loader.onload = () => showLoadedPhoto(photoSrc, photoAlt, Boolean(project.photo));
+  loader.onload = () => showLoadedPhoto(photoSrc, photoAlt, hasProjectPhoto);
   loader.onerror = () => {
-    if (photoSrc === DEFAULT_PROJECT_PHOTO) {
+    if (photoSrc === fallbackSrc) {
       showPhotoUnavailable();
       return;
     }
 
     const fallbackLoader = new Image();
-    fallbackLoader.onload = () => showLoadedPhoto(DEFAULT_PROJECT_PHOTO, 'Project photo placeholder', false);
+    fallbackLoader.onload = () => showLoadedPhoto(fallbackSrc, 'Project photo placeholder', false);
     fallbackLoader.onerror = showPhotoUnavailable;
-    fallbackLoader.src = DEFAULT_PROJECT_PHOTO;
+    fallbackLoader.src = fallbackSrc;
   };
   loader.src = photoSrc;
 }
@@ -621,13 +634,27 @@ function normalizeProjectCoords(project) {
   return Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : null;
 }
 
-fetch('projects.json')
-  .then((response) => {
-    if (!response.ok) {
-      throw new Error(`Failed to load projects.json: ${response.status}`);
+async function fetchProjectsData() {
+  for (const path of PROJECT_API_CANDIDATES) {
+    try {
+      const apiResponse = await fetch(new URL(path, window.location.href), { cache: 'no-store' });
+      if (!apiResponse.ok) {
+        throw new Error(`API returned ${apiResponse.status}`);
+      }
+      return await apiResponse.json();
+    } catch {
+      continue;
     }
-    return response.json();
-  })
+  }
+
+  const staticResponse = await fetch('projects.json', { cache: 'no-store' });
+  if (!staticResponse.ok) {
+    throw new Error(`Failed to load projects.json: ${staticResponse.status}`);
+  }
+  return staticResponse.json();
+}
+
+fetchProjectsData()
   .then((data) => {
     projects = data
       .map((project) => ({

@@ -28,21 +28,27 @@ const PROJECT_FIELDS = [
 ];
 
 const fieldKeys = PROJECT_FIELDS.map((field) => field.key);
+const DEFAULT_PROJECT_PHOTO = 'images/project-placeholder.png';
+const API_CANDIDATES = ['api/projects.php', 'api/projects'];
 
 const state = {
   projects: [],
   selectedIndex: -1,
   dirty: false,
   canSaveToServer: false,
+  apiUrl: null,
+  saveMethod: 'POST',
 };
 
 const statusEl = document.getElementById('adminStatus');
 const listEl = document.getElementById('adminProjectList');
 const countEl = document.getElementById('projectCount');
 const searchEl = document.getElementById('projectSearch');
+const editorTitleEl = document.getElementById('editorTitle');
 const editorFieldsEl = document.getElementById('editorFields');
-const emptyEditorEl = document.getElementById('emptyEditor');
 const editorActionsEl = document.getElementById('editorActions');
+const photoFrameEl = document.getElementById('adminPhotoFrame');
+const photoEl = document.getElementById('adminProjectPhoto');
 const addButton = document.getElementById('addProject');
 const deleteButton = document.getElementById('deleteProject');
 const saveButton = document.getElementById('saveProjects');
@@ -50,12 +56,28 @@ const exportButton = document.getElementById('exportProjects');
 const reloadButton = document.getElementById('reloadProjects');
 const cityHeader = document.querySelector('.city-site-header');
 
+let photoLoadToken = 0;
+
 function setStatus(message) {
   statusEl.textContent = message;
 }
 
 function hasValue(value) {
   return value !== null && value !== undefined && String(value).trim() !== '';
+}
+
+function getApiUrlCandidates() {
+  return API_CANDIDATES.map((path) => new URL(path, window.location.href).toString());
+}
+
+function resolveAssetUrl(assetPath) {
+  const path = hasValue(assetPath) ? String(assetPath).trim() : DEFAULT_PROJECT_PHOTO;
+
+  try {
+    return new URL(path, window.location.href).toString();
+  } catch {
+    return path;
+  }
 }
 
 function normalizeProject(project = {}) {
@@ -89,8 +111,10 @@ function markDirty(isDirty = true) {
   state.dirty = isDirty;
   saveButton.disabled = !state.projects.length || !state.canSaveToServer || !state.dirty;
 
-  if (!state.canSaveToServer) {
-    setStatus('Editing locally. Run the admin server to save directly, or export JSON.');
+  if (!state.projects.length) {
+    setStatus('No projects loaded.');
+  } else if (!state.canSaveToServer) {
+    setStatus('Direct save is unavailable on this host. Export JSON or enable the server API.');
   } else if (state.dirty) {
     setStatus(`${state.projects.length} projects loaded. Unsaved changes.`);
   } else {
@@ -98,23 +122,110 @@ function markDirty(isDirty = true) {
   }
 }
 
+function setEditorPhotoLoading(isLoading) {
+  photoFrameEl?.classList.toggle('is-loading', isLoading);
+  photoFrameEl?.setAttribute('aria-busy', String(isLoading));
+}
+
+function showEditorPhoto(src, alt) {
+  photoEl.src = src;
+  photoEl.alt = alt;
+}
+
+function loadEditorPhoto(project) {
+  const token = ++photoLoadToken;
+  const hasProjectPhoto = hasValue(project?.photo);
+  const photoSrc = resolveAssetUrl(hasProjectPhoto ? project.photo : DEFAULT_PROJECT_PHOTO);
+  const fallbackSrc = resolveAssetUrl(DEFAULT_PROJECT_PHOTO);
+  const photoAlt = hasProjectPhoto
+    ? `${project.title || 'Project'} photo`
+    : 'Project photo placeholder';
+
+  setEditorPhotoLoading(true);
+
+  const loader = new Image();
+  loader.onload = () => {
+    if (token !== photoLoadToken) return;
+    showEditorPhoto(photoSrc, photoAlt);
+    setEditorPhotoLoading(false);
+  };
+  loader.onerror = () => {
+    if (token !== photoLoadToken) return;
+
+    if (photoSrc === fallbackSrc) {
+      showEditorPhoto(fallbackSrc, 'Project photo placeholder');
+      setEditorPhotoLoading(false);
+      return;
+    }
+
+    const fallbackLoader = new Image();
+    fallbackLoader.onload = () => {
+      if (token !== photoLoadToken) return;
+      showEditorPhoto(fallbackSrc, 'Project photo placeholder');
+      setEditorPhotoLoading(false);
+    };
+    fallbackLoader.onerror = () => {
+      if (token !== photoLoadToken) return;
+      setEditorPhotoLoading(false);
+    };
+    fallbackLoader.src = fallbackSrc;
+  };
+  loader.src = photoSrc;
+}
+
+async function fetchPublishedProjects() {
+  const staticResponse = await fetch('projects.json', { cache: 'no-store' });
+
+  if (!staticResponse.ok) {
+    throw new Error(`Unable to load projects.json: ${staticResponse.status}`);
+  }
+
+  const staticData = await staticResponse.json();
+
+  if (!Array.isArray(staticData)) {
+    throw new Error('projects.json must contain an array');
+  }
+
+  return staticData;
+}
+
+async function fetchProjectsFromApi() {
+  const candidates = getApiUrlCandidates();
+
+  for (const apiUrl of candidates) {
+    try {
+      const response = await fetch(apiUrl, { cache: 'no-store' });
+
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (!Array.isArray(data)) {
+        throw new Error('API did not return an array');
+      }
+
+      state.apiUrl = apiUrl;
+      state.canSaveToServer = response.headers.get('X-Can-Save') !== 'false';
+      state.saveMethod = response.headers.get('X-Save-Method') || 'POST';
+      return data;
+    } catch {
+      continue;
+    }
+  }
+
+  throw new Error('No server API is available.');
+}
+
 async function fetchProjects() {
   try {
-    const apiResponse = await fetch('/api/projects', { cache: 'no-store' });
-    if (!apiResponse.ok) throw new Error(`API returned ${apiResponse.status}`);
-    const apiData = await apiResponse.json();
-    if (!Array.isArray(apiData)) throw new Error('API did not return an array');
-    state.canSaveToServer = true;
-    return apiData;
+    return await fetchProjectsFromApi();
   } catch {
-    const staticResponse = await fetch('projects.json', { cache: 'no-store' });
-    if (!staticResponse.ok) {
-      throw new Error(`Unable to load projects.json: ${staticResponse.status}`);
-    }
-    const staticData = await staticResponse.json();
-    if (!Array.isArray(staticData)) throw new Error('projects.json must contain an array');
+    state.apiUrl = null;
     state.canSaveToServer = false;
-    return staticData;
+    state.saveMethod = 'POST';
+    return fetchPublishedProjects();
   }
 }
 
@@ -125,12 +236,14 @@ async function loadProjects() {
   try {
     const projects = await fetchProjects();
     state.projects = projects.map(normalizeProject);
-    state.selectedIndex = state.projects.length ? 0 : -1;
+    state.selectedIndex = -1;
     renderAll();
     markDirty(false);
   } catch (error) {
     state.projects = [];
     state.selectedIndex = -1;
+    state.apiUrl = null;
+    state.canSaveToServer = false;
     renderAll();
     setStatus(error.message);
   }
@@ -138,7 +251,8 @@ async function loadProjects() {
 
 function getFilteredProjectIndexes() {
   const query = searchEl.value.trim().toLowerCase();
-  const indexedProjects = state.projects
+
+  return state.projects
     .map((project, index) => ({ project, index }))
     .filter(({ project }) => {
       if (!query) return true;
@@ -157,8 +271,6 @@ function getFilteredProjectIndexes() {
       sensitivity: 'base',
     }))
     .map(({ index }) => index);
-
-  return indexedProjects;
 }
 
 function renderProjectList() {
@@ -209,7 +321,6 @@ function createField(project, field) {
 
   control.id = inputId;
   control.name = field.key;
-  control.value = project[field.key] || '';
   control.className = field.type === 'textarea' ? 'field-textarea' : 'field-control';
 
   if (field.type === 'select') {
@@ -219,10 +330,15 @@ function createField(project, field) {
       option.textContent = optionValue === 'unknown' ? 'Unknown' : optionValue;
       control.appendChild(option);
     });
+    control.value = project[field.key] || field.fallback;
   } else if (field.type && field.type !== 'textarea') {
     control.type = field.type;
+    control.value = project[field.key] || '';
   } else if (field.type !== 'textarea') {
     control.type = 'text';
+    control.value = project[field.key] || '';
+  } else {
+    control.value = project[field.key] || '';
   }
 
   if (field.required) {
@@ -232,6 +348,11 @@ function createField(project, field) {
   control.addEventListener('input', () => {
     state.projects[state.selectedIndex][field.key] = control.value;
     markDirty();
+
+    if (field.key === 'photo' || field.key === 'title') {
+      loadEditorPhoto(state.projects[state.selectedIndex]);
+    }
+
     renderProjectList();
   });
 
@@ -252,13 +373,17 @@ function renderEditor() {
   editorFieldsEl.innerHTML = '';
 
   if (!project) {
-    emptyEditorEl.hidden = false;
+    editorTitleEl.textContent = 'Select a project to edit its JSON fields.';
+    editorTitleEl.classList.add('editor-title--empty');
+    loadEditorPhoto(null);
     editorFieldsEl.hidden = true;
     editorActionsEl.hidden = true;
     return;
   }
 
-  emptyEditorEl.hidden = true;
+  editorTitleEl.textContent = project.title || 'Untitled project';
+  editorTitleEl.classList.remove('editor-title--empty');
+  loadEditorPhoto(project);
   editorFieldsEl.hidden = false;
   editorActionsEl.hidden = false;
 
@@ -290,9 +415,11 @@ function addProject() {
 
 function deleteSelectedProject() {
   const project = state.projects[state.selectedIndex];
+
   if (!project) return;
 
   const confirmed = window.confirm(`Delete "${project.title || 'Untitled project'}"?`);
+
   if (!confirmed) return;
 
   state.projects.splice(state.selectedIndex, 1);
@@ -316,7 +443,7 @@ function downloadProjectsJson() {
 }
 
 async function saveProjects() {
-  if (!state.canSaveToServer) {
+  if (!state.canSaveToServer || !state.apiUrl) {
     downloadProjectsJson();
     return;
   }
@@ -325,15 +452,15 @@ async function saveProjects() {
   saveButton.disabled = true;
 
   try {
-    const response = await fetch('/api/projects', {
-      method: 'PUT',
+    const response = await fetch(state.apiUrl, {
+      method: state.saveMethod,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(getProjectsForSave()),
     });
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(error.error || `Save failed with status ${response.status}`);
+      throw new Error(error.error || error.message || `Save failed with status ${response.status}`);
     }
 
     state.projects = getProjectsForSave();
@@ -341,8 +468,8 @@ async function saveProjects() {
     renderAll();
     setStatus(`${state.projects.length} projects saved to projects.json.`);
   } catch (error) {
-    setStatus(error.message);
     markDirty(true);
+    setStatus(error.message);
   }
 }
 
