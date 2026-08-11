@@ -34,6 +34,9 @@ const projectFields = {
   lat: '',
   lng: '',
   district: '',
+  plannerName: '',
+  plannerPhone: '',
+  plannerEmail: '',
 };
 
 function sendJson(response, status, data) {

@@ -59,33 +59,57 @@
   </header>
 
   <main id="projectMap">
-    <aside class="sidebar">
-      <section class="search-filter-panel">
-        <label for="projectSearch">Search projects</label>
-        <div class="search-control">
-          <input id="projectSearch" type="search" placeholder="Search name, address, developer..." />
-          <button id="clearProjectSearch" type="button" aria-label="Clear project search">Clear</button>
-        </div>
-        <details class="filter-menu" id="filterMenu">
-          <summary class="filter-menu__summary">
-            <span>Filter by status</span>
-            <span class="filter-menu__current" id="currentStatusFilter">All</span>
-          </summary>
-          <div class="buttons">
-            <button data-filter="all" class="active">All</button>
-            <button data-filter="proposed">Proposed</button>
-            <button data-filter="review">Site Plan Review</button>
-            <button data-filter="permit">Building Permit</button>
-            <button data-filter="construction">Under Construction</button>
-            <button data-filter="completed">Completed</button>
+    <div class="sidebar-wrap scroll-hint-target" id="projectSidebarWrap">
+      <aside class="sidebar" id="projectSidebar">
+        <section class="search-filter-panel">
+          <label for="projectSearch">Search projects</label>
+          <div class="search-control">
+            <input id="projectSearch" type="search" placeholder="Name, address, developer…" />
+            <button id="clearProjectSearch" type="button" aria-label="Clear project search">Clear</button>
+            <details class="filter-menu" id="filterMenu">
+              <summary class="filter-menu__summary" aria-label="Filters" aria-describedby="currentFilterSummary">
+                <svg class="filter-menu__icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                  <path d="M2.5 4h15l-5.5 6.5v5.5l-4 2v-7.5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" />
+                </svg>
+                <span class="filter-menu__badge" id="filterActiveBadge" hidden>0</span>
+                <span class="sr-only" id="currentFilterSummary">All Active · All Districts</span>
+              </summary>
+              <div class="filter-panel">
+                <div class="filter-group">
+                  <span class="filter-group__label">Status</span>
+                  <div class="buttons">
+                    <button data-filter="all" class="active" aria-pressed="true">All Active</button>
+                    <button data-filter="proposed" aria-pressed="false"><span class="filter-status-icon proposed" aria-hidden="true"></span>Proposed</button>
+                    <button data-filter="review" aria-pressed="false"><span class="filter-status-icon review" aria-hidden="true"></span>Site Plan Review</button>
+                    <button data-filter="permit" aria-pressed="false"><span class="filter-status-icon permit" aria-hidden="true"></span>Building Permit</button>
+                    <button data-filter="construction" aria-pressed="false"><span class="filter-status-icon construction" aria-hidden="true"></span>Under Construction</button>
+                    <button data-filter="completed" aria-pressed="false"><span class="filter-status-icon completed" aria-hidden="true"></span>Completed</button>
+                    <button data-filter="expired" aria-pressed="false"><span class="filter-status-icon expired" aria-hidden="true"></span>Expired</button>
+                    <button data-filter="withdrawn" aria-pressed="false"><span class="filter-status-icon withdrawn" aria-hidden="true"></span>Withdrawn</button>
+                  </div>
+                  <p class="filter-hint">Expired and withdrawn projects are hidden under "All Active" — select them above to view.</p>
+                </div>
+                <div class="filter-group">
+                  <span class="filter-group__label">District</span>
+                  <div class="buttons">
+                    <button data-district-filter="all" class="active" aria-pressed="true">All</button>
+                    <button data-district-filter="1" aria-pressed="false">District 1</button>
+                    <button data-district-filter="2" aria-pressed="false">District 2</button>
+                    <button data-district-filter="3" aria-pressed="false">District 3</button>
+                    <button data-district-filter="4" aria-pressed="false">District 4</button>
+                    <button data-district-filter="5" aria-pressed="false">District 5</button>
+                  </div>
+                </div>
+              </div>
+            </details>
           </div>
-        </details>
-      </section>
-      <section class="project-list">
-        <h2>Project list</h2>
-        <ul id="projectList"></ul>
-      </section>
-    </aside>
+        </section>
+        <section class="project-list">
+          <h2>Project list <span class="project-list-count" id="projectListCount"></span></h2>
+          <ul id="projectList"></ul>
+        </section>
+      </aside>
+    </div>
 
     <section class="map-wrapper">
       <button class="map-size-toggle" id="mapSizeToggle" type="button" aria-expanded="false" aria-controls="map">
@@ -99,9 +123,11 @@
         <div><span class="legend-dot permit"></span> Building Permit Review</div>
         <div><span class="legend-dot construction"></span> Under Construction</div>
         <div><span class="legend-dot completed"></span> Completed</div>
+        <div><span class="legend-dot expired"></span> Expired</div>
+        <div><span class="legend-dot withdrawn"></span> Withdrawn</div>
       </details>
 
-      <section class="info-panel" id="projectInfoPanel" aria-hidden="true">
+      <section class="info-panel scroll-hint-target" id="projectInfoPanel" aria-hidden="true">
         <div class="panel-header">
           <div>
             <h2 id="panelProjectName">Project Details</h2>
@@ -112,7 +138,7 @@
           </div>
           <button id="closeInfoPanel" aria-label="Close project details">&times;</button>
         </div>
-        <div class="panel-body">
+        <div class="panel-body" id="infoPanelBody">
           <div class="project-photo-frame" id="projectPhotoFrame" aria-busy="false">
             <img id="projectPhoto" src="" alt="Project photo" />
             <div class="project-photo-loader" aria-hidden="true"></div>
@@ -121,30 +147,83 @@
             <div class="panel-label">Description</div>
             <div id="projectDescription" class="panel-value"></div>
           </div>
-          <div class="panel-row">
-            <div class="panel-label">Est. Completion</div>
-            <div id="projectCompletion" class="panel-value"></div>
+          <div class="panel-grid">
+            <div class="panel-row">
+              <div class="panel-label">Est. Completion</div>
+              <div id="projectCompletion" class="panel-value"></div>
+            </div>
+            <div class="panel-row">
+              <div class="panel-label">Valuation</div>
+              <div id="projectValuation" class="panel-value"></div>
+            </div>
+            <div class="panel-row">
+              <div class="panel-label">Developer</div>
+              <div id="projectDeveloper" class="panel-value"></div>
+            </div>
+            <div class="panel-row">
+              <div class="panel-label">Contractor</div>
+              <div id="projectContractor" class="panel-value"></div>
+            </div>
+            <div class="panel-row">
+              <div class="panel-label">District</div>
+              <div id="projectDistrict" class="panel-value"></div>
+            </div>
           </div>
-          <div class="panel-row">
-            <div class="panel-label">Valuation</div>
-            <div id="projectValuation" class="panel-value"></div>
-          </div>
-          <div class="panel-row">
-            <div class="panel-label">Developer</div>
-            <div id="projectDeveloper" class="panel-value"></div>
-          </div>
-          <div class="panel-row">
-            <div class="panel-label">Contractor</div>
-            <div id="projectContractor" class="panel-value"></div>
-          </div>
-          <div class="panel-row">
-            <div class="panel-label">District</div>
-            <div id="projectDistrict" class="panel-value"></div>
+          <div class="panel-row planner-row">
+            <div class="panel-label">Assigned Planner</div>
+            <div id="projectPlannerName" class="panel-value"></div>
+            <div class="planner-contact">
+              <a id="projectPlannerPhone" class="planner-link"></a>
+              <a id="projectPlannerEmail" class="planner-link"></a>
+            </div>
           </div>
         </div>
       </section>
     </section>
   </main>
+
+  <div class="welcome-modal" id="welcomeModal" aria-hidden="true">
+    <div class="welcome-modal__backdrop"></div>
+    <div class="welcome-modal__content" role="dialog" aria-modal="true" aria-labelledby="welcomeModalTitle">
+      <button class="welcome-modal__close" id="welcomeModalClose" aria-label="Close welcome message">
+        <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+          <line x1="5" y1="5" x2="15" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          <line x1="15" y1="5" x2="5" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+        </svg>
+      </button>
+      <div class="welcome-modal__hero">
+        <h2 id="welcomeModalTitle">See What's Being Built in Pompano Beach</h2>
+        <p>From proposal to completion, follow every development project shaping the city.</p>
+      </div>
+      <ul class="welcome-modal__list">
+        <li>
+          <span class="welcome-modal__icon welcome-modal__icon--blue" aria-hidden="true">
+            <svg viewBox="0 0 20 20"><circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" stroke-width="1.8" /><line x1="13.5" y1="13.5" x2="18" y2="18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+          </span>
+          <span><strong>Search</strong> by project name, address, or developer.</span>
+        </li>
+        <li>
+          <span class="welcome-modal__icon welcome-modal__icon--orange" aria-hidden="true">
+            <svg viewBox="0 0 20 20"><path d="M2.5 4h15l-5.5 6.5v5.5l-4 2v-7.5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" /></svg>
+          </span>
+          <span><strong>Filter</strong> by status or district with the Filters button.</span>
+        </li>
+        <li>
+          <span class="welcome-modal__icon welcome-modal__icon--green" aria-hidden="true">
+            <svg viewBox="0 0 20 20"><line x1="3" y1="6" x2="17" y2="6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /><line x1="3" y1="10" x2="17" y2="10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /><line x1="3" y1="14" x2="12" y2="14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+          </span>
+          <span><strong>Scroll</strong> the project list and select one to view its full details.</span>
+        </li>
+        <li>
+          <span class="welcome-modal__icon welcome-modal__icon--purple" aria-hidden="true">
+            <svg viewBox="0 0 20 20"><path d="M10 2c-3.3 0-6 2.7-6 6 0 4.5 6 10 6 10s6-5.5 6-10c0-3.3-2.7-6-6-6z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /><circle cx="10" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.6" /></svg>
+          </span>
+          <span><strong>Click</strong> an icon on the map to view that project too.</span>
+        </li>
+      </ul>
+      <button class="welcome-modal__dismiss" id="welcomeModalDismiss" type="button">Got it</button>
+    </div>
+  </div>
 
   <div class="image-modal" id="imageModal" aria-hidden="true">
     <div class="image-modal__backdrop"></div>

@@ -11,11 +11,19 @@ const PROJECT_FIELDS = [
       'Building Permit Review',
       'Under Construction',
       'Completed',
+      'Expired',
+      'Withdrawn',
       'unknown',
     ],
   },
   { key: 'address', label: 'Address', fallback: '' },
-  { key: 'district', label: 'District', fallback: '' },
+  {
+    key: 'district',
+    label: 'District',
+    fallback: '',
+    type: 'select',
+    options: ['', 'District 1', 'District 2', 'District 3', 'District 4', 'District 5'],
+  },
   { key: 'lat', label: 'Latitude', fallback: '' },
   { key: 'lng', label: 'Longitude', fallback: '' },
   { key: 'summary', label: 'Summary', fallback: '', wide: true },
@@ -24,6 +32,9 @@ const PROJECT_FIELDS = [
   { key: 'valuation', label: 'Valuation', fallback: '' },
   { key: 'developer', label: 'Developer', fallback: '' },
   { key: 'contractor', label: 'Contractor', fallback: '' },
+  { key: 'plannerName', label: 'Assigned Planner', fallback: '' },
+  { key: 'plannerPhone', label: 'Planner Phone', fallback: '', type: 'tel' },
+  { key: 'plannerEmail', label: 'Planner Email', fallback: '', type: 'email' },
   { key: 'photo', label: 'Photo', fallback: '', type: 'url', wide: true },
 ];
 
@@ -264,6 +275,9 @@ function getFilteredProjectIndexes() {
         project.developer,
         project.contractor,
         project.district,
+        project.plannerName,
+        project.plannerPhone,
+        project.plannerEmail,
       ].some((value) => String(value || '').toLowerCase().includes(query));
     })
     .sort((a, b) => String(a.project.title || '').localeCompare(String(b.project.title || ''), undefined, {
@@ -327,7 +341,11 @@ function createField(project, field) {
     field.options.forEach((optionValue) => {
       const option = document.createElement('option');
       option.value = optionValue;
-      option.textContent = optionValue === 'unknown' ? 'Unknown' : optionValue;
+      option.textContent = optionValue === 'unknown'
+        ? 'Unknown'
+        : optionValue === ''
+          ? 'Not set'
+          : optionValue;
       control.appendChild(option);
     });
     control.value = project[field.key] || field.fallback;

@@ -1,4 +1,5 @@
 let projects = [];
+let projectListStatus = 'loading'; // 'loading' | 'ready' | 'error'
 
 const statusColors = {
   proposed: '#6b7280',
@@ -6,6 +7,8 @@ const statusColors = {
   permit: '#f97316',
   construction: '#eab308',
   completed: '#10b981',
+  expired: '#dc2626',
+  withdrawn: '#7c3aed',
   unknown: '#6b7280',
 };
 
@@ -15,6 +18,8 @@ const statusIcons = {
   permit: 'images/icons/Icon-PermitReview.png',
   construction: 'images/icons/Icon-Construction.png',
   completed: 'images/icons/Icon-Complete.png',
+  expired: 'images/icons/Icon-Expired.png',
+  withdrawn: 'images/icons/Icon-Withdrawn.png',
   unknown: 'images/icons/Icon-Proposed.png',
 };
 
@@ -28,6 +33,8 @@ const statusLabels = {
   permit: 'Building Permit Review',
   construction: 'Under Construction',
   completed: 'Completed',
+  expired: 'Expired',
+  withdrawn: 'Withdrawn',
   unknown: 'Unknown',
 };
 
@@ -42,6 +49,8 @@ function normalizeProjectStatus(status) {
   if (value === 'permit' || value.includes('building permit')) return 'permit';
   if (value === 'construction' || value.includes('under construction')) return 'construction';
   if (value === 'completed' || value === 'complete') return 'completed';
+  if (value === 'expired') return 'expired';
+  if (value === 'withdrawn') return 'withdrawn';
   return 'unknown';
 }
 
@@ -67,6 +76,26 @@ function resolveAssetUrl(assetPath) {
   } catch {
     return path;
   }
+}
+
+function setContactLink(el, value, hrefFor) {
+  if (!el) return;
+
+  if (hasValue(value)) {
+    const text = String(value).trim();
+    el.textContent = text;
+    el.href = hrefFor(text);
+    el.classList.remove('is-disabled');
+  } else {
+    el.textContent = 'TBD';
+    el.removeAttribute('href');
+    el.classList.add('is-disabled');
+  }
+}
+
+function normalizeProjectDistrict(district) {
+  const match = String(district || '').match(/[1-5]/);
+  return match ? match[0] : '';
 }
 
 function getProjectPopupText(project) {
@@ -230,9 +259,12 @@ const boundaryGeoJson = [[
 
 const boundaryCoords = boundaryGeoJson[0].map(([lng, lat]) => [lat, lng]);
 
+const CITY_CENTER = [26.2421, -80.1248];
+const CITY_DEFAULT_ZOOM = 13;
+
 const map = L.map('map', {
   scrollWheelZoom: true,
-}).setView([26.2421, -80.1248], 13);
+}).setView(CITY_CENTER, CITY_DEFAULT_ZOOM);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap contributors',
@@ -252,7 +284,16 @@ const projectValuation = document.getElementById('projectValuation');
 const projectDeveloper = document.getElementById('projectDeveloper');
 const projectContractor = document.getElementById('projectContractor');
 const projectDistrict = document.getElementById('projectDistrict');
+const projectPlannerName = document.getElementById('projectPlannerName');
+const projectPlannerPhone = document.getElementById('projectPlannerPhone');
+const projectPlannerEmail = document.getElementById('projectPlannerEmail');
 const projectDescription = document.getElementById('projectDescription');
+const infoPanelBody = document.getElementById('infoPanelBody');
+const projectSidebar = document.getElementById('projectSidebar');
+const projectSidebarWrap = document.getElementById('projectSidebarWrap');
+const welcomeModal = document.getElementById('welcomeModal');
+const welcomeModalClose = document.getElementById('welcomeModalClose');
+const welcomeModalDismiss = document.getElementById('welcomeModalDismiss');
 const imageModal = document.getElementById('imageModal');
 const modalImage = document.getElementById('modalImage');
 const modalCaption = document.getElementById('modalCaption');
@@ -297,6 +338,41 @@ function updateHeaderHeight() {
 
 updateHeaderHeight();
 window.addEventListener('resize', updateHeaderHeight);
+
+// `el` is the element that actually scrolls; `hintEl` is the (non-scrolling,
+// positioned) element whose ::before/::after paint the fade + chevron. They
+// have to be different elements: an absolutely-positioned pseudo anchored to
+// the scrolling box itself scrolls away with the content instead of staying
+// pinned to the visible edge, so the hint must live on a stable ancestor.
+function initScrollHint(el, hintEl = el) {
+  if (!el || !hintEl) return;
+
+  const updateScrollHint = () => {
+    const hasMore = el.scrollHeight - el.scrollTop - el.clientHeight > 2;
+    hintEl.classList.toggle('has-more-below', hasMore);
+  };
+
+  el.addEventListener('scroll', updateScrollHint, { passive: true });
+
+  // Catches list/panel content changing height (filters, project selection)
+  // without needing every call site to remember to re-check.
+  if (typeof ResizeObserver === 'function') {
+    new ResizeObserver(updateScrollHint).observe(el);
+  }
+
+  if (typeof MutationObserver === 'function') {
+    new MutationObserver(updateScrollHint).observe(el, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+  }
+
+  updateScrollHint();
+}
+
+initScrollHint(projectSidebar, projectSidebarWrap);
+initScrollHint(infoPanelBody, infoPanel);
 
 function setProjectPhotoLoading(isLoading) {
   projectPhotoFrame?.classList.toggle('is-loading', isLoading);
@@ -361,11 +437,15 @@ function openInfoPanel(project) {
   projectDeveloper.textContent = displayValue(project.developer);
   projectContractor.textContent = displayValue(project.contractor);
   projectDistrict.textContent = displayValue(project.district);
+  projectPlannerName.textContent = displayValue(project.plannerName);
+  setContactLink(projectPlannerPhone, project.plannerPhone, (phone) => `tel:${phone.replace(/[^\d+]/g, '')}`);
+  setContactLink(projectPlannerEmail, project.plannerEmail, (email) => `mailto:${email}`);
   projectDescription.textContent = displayValue(project.description);
   projectStatus.style.setProperty('--status-color', statusColors[project.status] || statusColors.unknown);
   document.body.classList.add('info-panel-open');
   infoPanel.classList.add('open');
   infoPanel.setAttribute('aria-hidden', 'false');
+  syncProjectListSelection();
 }
 
 function closeInfoPanel() {
@@ -376,6 +456,48 @@ function closeInfoPanel() {
     activeMarker.closePopup();
     activeMarker = null;
   }
+}
+
+const WELCOME_SEEN_KEY = 'pompano-welcome-seen';
+
+function hasSeenWelcome() {
+  try {
+    return localStorage.getItem(WELCOME_SEEN_KEY) === '1';
+  } catch {
+    // Storage unavailable (private browsing, disabled cookies, etc.) — don't
+    // keep the modal popping back up every load with no way to persist "seen".
+    return true;
+  }
+}
+
+function markWelcomeSeen() {
+  try {
+    localStorage.setItem(WELCOME_SEEN_KEY, '1');
+  } catch {
+    // Nothing to persist to; the modal just won't remember it was dismissed.
+  }
+}
+
+function closeWelcomeModal() {
+  if (!welcomeModal) return;
+  welcomeModal.classList.remove('open');
+  welcomeModal.setAttribute('aria-hidden', 'true');
+  markWelcomeSeen();
+}
+
+if (welcomeModal && !hasSeenWelcome()) {
+  welcomeModal.classList.add('open');
+  welcomeModal.setAttribute('aria-hidden', 'false');
+}
+
+if (welcomeModal) {
+  welcomeModalClose?.addEventListener('click', closeWelcomeModal);
+  welcomeModalDismiss?.addEventListener('click', closeWelcomeModal);
+  welcomeModal.addEventListener('click', (event) => {
+    if (event.target === welcomeModal || event.target.classList.contains('welcome-modal__backdrop')) {
+      closeWelcomeModal();
+    }
+  });
 }
 
 function openImageModal() {
@@ -403,7 +525,9 @@ imageModal.addEventListener('click', (event) => {
 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
-    if (imageModal.classList.contains('open')) {
+    if (welcomeModal?.classList.contains('open')) {
+      closeWelcomeModal();
+    } else if (imageModal.classList.contains('open')) {
       closeImageModal();
     } else {
       closeInfoPanel();
@@ -425,6 +549,8 @@ function createMarker(project) {
     <em>${project.statusLabel}</em><br />
     <span>${getProjectPopupText(project)}</span>`, {
     autoPan: false,
+    autoClose: false,
+    closeOnClick: false,
   });
 
   marker.project = project;
@@ -526,20 +652,21 @@ function focusProject(project, marker = markers.find((m) => m.project === projec
   const wasOpen = infoPanel.classList.contains('open');
   openInfoPanel(project);
 
-  if (Array.isArray(project.coords) && project.coords.length === 2) {
-    const zoom = 15;
-    const centerProject = () => {
-      map.flyTo(getPanelAdjustedCenter(project.coords, zoom), zoom, { duration: 0.9 });
-      setActiveMarker(marker);
-    };
+  const hasCoords = Array.isArray(project.coords) && project.coords.length === 2;
+  // Projects without known coordinates have no marker to fly to — recenter on
+  // the city itself rather than leaving the map wherever it happened to be.
+  const targetCoords = hasCoords ? project.coords : CITY_CENTER;
+  const zoom = hasCoords ? 15 : CITY_DEFAULT_ZOOM;
 
-    if (wasOpen) {
-      requestAnimationFrame(centerProject);
-    } else {
-      afterInfoPanelOpen(centerProject);
-    }
-  } else {
+  const centerProject = () => {
+    map.flyTo(getPanelAdjustedCenter(targetCoords, zoom), zoom, { duration: 0.9 });
     setActiveMarker(marker);
+  };
+
+  if (wasOpen) {
+    requestAnimationFrame(centerProject);
+  } else {
+    afterInfoPanelOpen(centerProject);
   }
 }
 
@@ -549,38 +676,60 @@ function initProjectData() {
     .map(createMarker);
 
   markers.forEach((marker) => marker.addTo(markerLayer));
-  applyFilter('all');
+  applyFilter();
 }
 
 const projectList = document.getElementById('projectList');
+const projectListCount = document.getElementById('projectListCount');
 const filterButtons = document.querySelectorAll('[data-filter]');
 const projectSearch = document.getElementById('projectSearch');
 const clearProjectSearch = document.getElementById('clearProjectSearch');
 const filterMenu = document.getElementById('filterMenu');
-const currentStatusFilter = document.getElementById('currentStatusFilter');
+const currentFilterSummary = document.getElementById('currentFilterSummary');
+const filterActiveBadge = document.getElementById('filterActiveBadge');
+const districtFilterButtons = document.querySelectorAll('[data-district-filter]');
 const mapLegend = document.querySelector('.map-legend');
 const mapWrapper = document.querySelector('.map-wrapper');
 const mapSizeToggle = document.getElementById('mapSizeToggle');
-let activeStatusFilter = 'all';
+const activeStatusFilters = new Set();
+const activeDistrictFilters = new Set();
 
-function getStatusFilterLabel(status) {
-  return status === 'all' ? 'All' : statusLabels[status] || statusLabels.unknown;
-}
+const HIDDEN_BY_DEFAULT_STATUSES = ['expired', 'withdrawn'];
 
 function syncFilterMenuState() {
-  if (!filterMenu) return;
-  filterMenu.open = false;
+  if (filterMenu) filterMenu.open = false;
+}
+
+const LEGEND_OPEN_KEY = 'pompano-legend-open';
+
+function getSavedLegendState() {
+  try {
+    const value = localStorage.getItem(LEGEND_OPEN_KEY);
+    return value === null ? null : value === '1';
+  } catch {
+    return null;
+  }
+}
+
+function saveLegendState(isOpen) {
+  try {
+    localStorage.setItem(LEGEND_OPEN_KEY, isOpen ? '1' : '0');
+  } catch {
+    // Storage unavailable — the preference just won't persist across visits.
+  }
 }
 
 function syncLegendState() {
   if (!mapLegend) return;
-  mapLegend.open = !mobileLayoutQuery.matches;
+  const saved = getSavedLegendState();
+  // Once the user has explicitly opened/closed it, remember that choice
+  // instead of resetting it every time the viewport crosses the mobile
+  // breakpoint. Only fall back to the responsive default before that.
+  mapLegend.open = saved === null ? !mobileLayoutQuery.matches : saved;
 }
 
-function closeFilterMenuOnMobile() {
-  if (filterMenu && mobileLayoutQuery.matches) {
-    filterMenu.open = false;
-  }
+if (mapLegend) {
+  mapLegend.addEventListener('toggle', () => saveLegendState(mapLegend.open));
 }
 
 if (typeof mobileLayoutQuery.addEventListener === 'function') {
@@ -623,14 +772,21 @@ if (typeof mobileLayoutQuery.addEventListener === 'function') {
   mobileLayoutQuery.addListener(syncMapSizeToggleState);
 }
 
+function toCoordNumber(value) {
+  // Number('') and Number(null/undefined) evaluate to 0, which would silently
+  // resolve missing coordinates to [0, 0] (Null Island, out in the ocean).
+  // Treat a blank/missing value as unknown instead of a real coordinate.
+  return hasValue(value) ? Number(value) : NaN;
+}
+
 function normalizeProjectCoords(project) {
   if (Array.isArray(project.coords) && project.coords.length === 2) {
-    const [lat, lng] = project.coords.map(Number);
+    const [lat, lng] = project.coords.map(toCoordNumber);
     return Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : null;
   }
 
-  const lat = Number(project.lat);
-  const lng = Number(project.lng);
+  const lat = toCoordNumber(project.lat);
+  const lng = toCoordNumber(project.lng);
   return Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : null;
 }
 
@@ -674,42 +830,71 @@ fetchProjectsData()
         developer: displayValue(project.developer, ''),
         contractor: displayValue(project.contractor, ''),
         photo: displayValue(project.photo, ''),
+        plannerName: displayValue(project.plannerName, ''),
+        plannerPhone: displayValue(project.plannerPhone, ''),
+        plannerEmail: displayValue(project.plannerEmail, ''),
+        districtNumber: normalizeProjectDistrict(project.district),
         coords: normalizeProjectCoords(project),
       }))
       .sort((a, b) => displayValue(a.title, '').localeCompare(displayValue(b.title, ''), undefined, {
         numeric: true,
         sensitivity: 'base',
       }));
+    projectListStatus = 'ready';
     initProjectData();
   })
   .catch((error) => {
     console.error(error);
-    projectList.innerHTML = '<li>Unable to load project data.</li>';
+    projectListStatus = 'error';
+    renderProjectList([]);
   });
+
+function syncProjectListSelection() {
+  projectList.querySelectorAll('.project-list-item').forEach((button) => {
+    const isActive = button.__project === activeProject;
+    button.classList.toggle('active', isActive);
+    if (isActive) button.scrollIntoView({ block: 'nearest' });
+  });
+}
+
+function getEmptyProjectListMessage() {
+  if (projectListStatus === 'loading') return 'Loading projects…';
+  if (projectListStatus === 'error') return 'Unable to load project data.';
+  return 'No matching projects.';
+}
 
 function renderProjectList(filteredProjects) {
   projectList.innerHTML = '';
   if (!filteredProjects.length) {
     const item = document.createElement('li');
     item.className = 'empty-project-result';
-    item.textContent = 'No matching projects.';
+    item.textContent = getEmptyProjectListMessage();
     projectList.appendChild(item);
     return;
   }
 
   filteredProjects.forEach((project) => {
     const item = document.createElement('li');
-    item.innerHTML = `
-      <div class="project-label">${project.title}</div>
-      <div class="project-meta">
-        <span>${project.address || 'TBD'}</span>
-        <span class="project-status-meta">${project.statusLabel || statusLabels.unknown}</span>
-      </div>
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'project-list-item';
+    button.classList.toggle('active', project === activeProject);
+    button.style.setProperty('--status-color', statusColors[project.status] || statusColors.unknown);
+    button.__project = project;
+    button.innerHTML = `
+      <span class="project-list-item__body">
+        <span class="project-label">${project.title}</span>
+        <span class="project-meta">
+          <span>${project.address || 'TBD'}</span>
+          <span class="project-status-meta">${project.statusLabel || statusLabels.unknown}</span>
+        </span>
+      </span>
     `;
-    item.addEventListener('click', () => {
+    button.addEventListener('click', () => {
       const marker = markers.find((m) => m.project === project);
       focusProject(project, marker);
     });
+    item.appendChild(button);
     projectList.appendChild(item);
   });
 }
@@ -725,19 +910,65 @@ function getSearchText(project) {
     project.developer,
     project.contractor,
     project.district,
+    project.plannerName,
+    project.plannerPhone,
+    project.plannerEmail,
   ].join(' ').toLowerCase();
 }
 
-function applyFilter(status = activeStatusFilter) {
-  activeStatusFilter = status;
-  currentStatusFilter.textContent = getStatusFilterLabel(activeStatusFilter);
+function getStatusSummaryLabel() {
+  if (!activeStatusFilters.size) return 'All Active';
+  return [...activeStatusFilters].map((status) => statusLabels[status] || statusLabels.unknown).join(', ');
+}
+
+function getDistrictSummaryLabel() {
+  if (!activeDistrictFilters.size) return 'All Districts';
+  return [...activeDistrictFilters].map((district) => `District ${district}`).join(', ');
+}
+
+function updateFilterSummary() {
+  if (currentFilterSummary) {
+    currentFilterSummary.textContent = `${getStatusSummaryLabel()} · ${getDistrictSummaryLabel()}`;
+  }
+
+  if (filterActiveBadge) {
+    const activeCount = activeStatusFilters.size + activeDistrictFilters.size;
+    filterActiveBadge.textContent = String(activeCount);
+    filterActiveBadge.hidden = activeCount === 0;
+  }
+}
+
+function syncFilterButtonStates() {
+  filterButtons.forEach((btn) => {
+    const isSelected = btn.dataset.filter === 'all'
+      ? activeStatusFilters.size === 0
+      : activeStatusFilters.has(btn.dataset.filter);
+    btn.classList.toggle('active', isSelected);
+    btn.setAttribute('aria-pressed', String(isSelected));
+  });
+
+  districtFilterButtons.forEach((btn) => {
+    const isSelected = btn.dataset.districtFilter === 'all'
+      ? activeDistrictFilters.size === 0
+      : activeDistrictFilters.has(btn.dataset.districtFilter);
+    btn.classList.toggle('active', isSelected);
+    btn.setAttribute('aria-pressed', String(isSelected));
+  });
+}
+
+function applyFilter() {
+  updateFilterSummary();
+  syncFilterButtonStates();
   markerLayer.clearLayers();
 
   const query = projectSearch.value.trim().toLowerCase();
   const filtered = projects.filter((project) => {
-    const matchesStatus = activeStatusFilter === 'all' || project.status === activeStatusFilter;
+    const matchesStatus = activeStatusFilters.size === 0
+      ? !HIDDEN_BY_DEFAULT_STATUSES.includes(project.status)
+      : activeStatusFilters.has(project.status);
+    const matchesDistrict = activeDistrictFilters.size === 0 || activeDistrictFilters.has(project.districtNumber);
     const matchesSearch = !query || getSearchText(project).includes(query);
-    return matchesStatus && matchesSearch;
+    return matchesStatus && matchesDistrict && matchesSearch;
   });
 
   filtered.forEach((project) => {
@@ -745,15 +976,40 @@ function applyFilter(status = activeStatusFilter) {
     if (marker) marker.addTo(markerLayer);
   });
 
+  if (projectListCount) {
+    projectListCount.textContent = `(${filtered.length} of ${projects.length})`;
+  }
+
   renderProjectList(filtered);
+}
+
+function toggleSetValue(set, value) {
+  if (set.has(value)) {
+    set.delete(value);
+  } else {
+    set.add(value);
+  }
 }
 
 filterButtons.forEach((button) => {
   button.addEventListener('click', () => {
-    filterButtons.forEach((btn) => btn.classList.remove('active'));
-    button.classList.add('active');
-    applyFilter(button.dataset.filter);
-    closeFilterMenuOnMobile();
+    if (button.dataset.filter === 'all') {
+      activeStatusFilters.clear();
+    } else {
+      toggleSetValue(activeStatusFilters, button.dataset.filter);
+    }
+    applyFilter();
+  });
+});
+
+districtFilterButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    if (button.dataset.districtFilter === 'all') {
+      activeDistrictFilters.clear();
+    } else {
+      toggleSetValue(activeDistrictFilters, button.dataset.districtFilter);
+    }
+    applyFilter();
   });
 });
 
@@ -765,4 +1021,21 @@ clearProjectSearch.addEventListener('click', () => {
   projectSearch.focus();
 });
 
-applyFilter('all');
+// The filter menu now renders as a floating dropdown rather than an in-page
+// accordion, so it needs the usual dropdown affordances: dismiss on an
+// outside click or Escape.
+if (filterMenu) {
+  document.addEventListener('click', (event) => {
+    if (filterMenu.open && !filterMenu.contains(event.target)) {
+      filterMenu.open = false;
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && filterMenu.open) {
+      filterMenu.open = false;
+    }
+  });
+}
+
+applyFilter();

@@ -22,6 +22,9 @@ $fieldDefaults = [
     'lat' => '',
     'lng' => '',
     'district' => '',
+    'plannerName' => '',
+    'plannerPhone' => '',
+    'plannerEmail' => '',
 ];
 
 function send_json(int $statusCode, array $payload): void
