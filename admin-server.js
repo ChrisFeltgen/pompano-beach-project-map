@@ -37,6 +37,7 @@ const projectFields = {
   plannerName: '',
   plannerPhone: '',
   plannerEmail: '',
+  lastUpdated: '',
 };
 
 function sendJson(response, status, data) {

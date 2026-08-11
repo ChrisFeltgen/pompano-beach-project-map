@@ -821,6 +821,12 @@ main {
   cursor: default;
 }
 
+.panel-footnote {
+  color: var(--muted);
+  font-size: 0.76rem;
+  text-align: right;
+}
+
 .status-badge {
   display: inline-flex;
   align-items: center;
@@ -1182,17 +1188,27 @@ button.active {
   background: rgba(255, 255, 255, 0.94);
   box-shadow: 0 10px 28px rgba(31, 41, 51, 0.16);
   font-size: 0.92rem;
+  transition: padding 0.15s ease, border-radius 0.15s ease;
+}
+
+.map-legend:not([open]) {
+  padding: 5px 10px;
+  border-radius: 999px;
 }
 
 .map-legend summary {
   position: relative;
   margin: 0;
-  padding-right: 20px;
+  padding-right: 18px;
   color: var(--city-blue);
   font-size: 0.95rem;
   font-weight: 700;
   list-style: none;
   cursor: pointer;
+}
+
+.map-legend:not([open]) summary {
+  font-size: 0.82rem;
 }
 
 .map-legend summary::-webkit-details-marker {
@@ -1234,7 +1250,9 @@ button.active {
 
 .legend-dot.proposed, .filter-status-icon.proposed { background-image: url("images/icons/Icon-Proposed.png"); }
 .legend-dot.review, .filter-status-icon.review { background-image: url("images/icons/Icon-SitePlan.png"); }
+.legend-dot.planapproved, .filter-status-icon.planapproved { background-image: url("images/icons/Icon-SitePlanApproved.png"); }
 .legend-dot.permit, .filter-status-icon.permit { background-image: url("images/icons/Icon-PermitReview.png"); }
+.legend-dot.permitissued, .filter-status-icon.permitissued { background-image: url("images/icons/Icon-PermitIssued.png"); }
 .legend-dot.construction, .filter-status-icon.construction { background-image: url("images/icons/Icon-Construction.png"); }
 .legend-dot.completed, .filter-status-icon.completed { background-image: url("images/icons/Icon-Complete.png"); }
 .legend-dot.expired, .filter-status-icon.expired { background-image: url("images/icons/Icon-Expired.png"); }
@@ -1444,7 +1462,8 @@ button.active {
 
   .map-legend:not([open]) {
     width: auto;
-    padding: 8px 10px;
+    padding: 5px 9px;
+    border-radius: 999px;
   }
 
   .map-legend:not([open]) div {

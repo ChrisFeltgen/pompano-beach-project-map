@@ -81,7 +81,9 @@
                     <button data-filter="all" class="active" aria-pressed="true">All Active</button>
                     <button data-filter="proposed" aria-pressed="false"><span class="filter-status-icon proposed" aria-hidden="true"></span>Proposed</button>
                     <button data-filter="review" aria-pressed="false"><span class="filter-status-icon review" aria-hidden="true"></span>Site Plan Review</button>
+                    <button data-filter="planapproved" aria-pressed="false"><span class="filter-status-icon planapproved" aria-hidden="true"></span>Site Plan Approved</button>
                     <button data-filter="permit" aria-pressed="false"><span class="filter-status-icon permit" aria-hidden="true"></span>Building Permit</button>
+                    <button data-filter="permitissued" aria-pressed="false"><span class="filter-status-icon permitissued" aria-hidden="true"></span>Permit Issued</button>
                     <button data-filter="construction" aria-pressed="false"><span class="filter-status-icon construction" aria-hidden="true"></span>Under Construction</button>
                     <button data-filter="completed" aria-pressed="false"><span class="filter-status-icon completed" aria-hidden="true"></span>Completed</button>
                     <button data-filter="expired" aria-pressed="false"><span class="filter-status-icon expired" aria-hidden="true"></span>Expired</button>
@@ -120,7 +122,9 @@
         <summary>Legend</summary>
         <div><span class="legend-dot proposed"></span> Proposed</div>
         <div><span class="legend-dot review"></span> Site Plan Review</div>
+        <div><span class="legend-dot planapproved"></span> Site Plan Approved</div>
         <div><span class="legend-dot permit"></span> Building Permit Review</div>
+        <div><span class="legend-dot permitissued"></span> Permit Issued</div>
         <div><span class="legend-dot construction"></span> Under Construction</div>
         <div><span class="legend-dot completed"></span> Completed</div>
         <div><span class="legend-dot expired"></span> Expired</div>
@@ -177,6 +181,7 @@
               <a id="projectPlannerEmail" class="planner-link"></a>
             </div>
           </div>
+          <div class="panel-footnote" id="projectLastUpdated" hidden></div>
         </div>
       </section>
     </section>

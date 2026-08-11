@@ -4,7 +4,9 @@ let projectListStatus = 'loading'; // 'loading' | 'ready' | 'error'
 const statusColors = {
   proposed: '#6b7280',
   review: '#2563eb',
+  planapproved: '#2563eb',
   permit: '#f97316',
+  permitissued: '#f97316',
   construction: '#eab308',
   completed: '#10b981',
   expired: '#dc2626',
@@ -15,7 +17,9 @@ const statusColors = {
 const statusIcons = {
   proposed: 'images/icons/Icon-Proposed.png',
   review: 'images/icons/Icon-SitePlan.png',
+  planapproved: 'images/icons/Icon-SitePlanApproved.png',
   permit: 'images/icons/Icon-PermitReview.png',
+  permitissued: 'images/icons/Icon-PermitIssued.png',
   construction: 'images/icons/Icon-Construction.png',
   completed: 'images/icons/Icon-Complete.png',
   expired: 'images/icons/Icon-Expired.png',
@@ -30,7 +34,9 @@ const markerPopupAnchor = [0, -(markerIconSize[1] - 3)];
 const statusLabels = {
   proposed: 'Proposed',
   review: 'Site Plan Review',
+  planapproved: 'Site Plan Approved',
   permit: 'Building Permit Review',
+  permitissued: 'Permit Issued',
   construction: 'Under Construction',
   completed: 'Completed',
   expired: 'Expired',
@@ -45,7 +51,12 @@ function normalizeProjectStatus(status) {
   const value = String(status || '').trim().toLowerCase();
   if (!value) return 'unknown';
   if (value === 'proposed') return 'proposed';
+  // Check the more specific "approved/issued" phrasing before the broader
+  // "site plan"/"permit" substring matches below, since e.g. "Site Plan
+  // Approved" would otherwise also match `includes('site plan')`.
+  if (value.includes('site plan') && value.includes('approv')) return 'planapproved';
   if (value === 'review' || value.includes('site plan')) return 'review';
+  if (value.includes('permit') && (value.includes('issu') || value.includes('approv'))) return 'permitissued';
   if (value === 'permit' || value.includes('building permit')) return 'permit';
   if (value === 'construction' || value.includes('under construction')) return 'construction';
   if (value === 'completed' || value === 'complete') return 'completed';
@@ -91,6 +102,17 @@ function setContactLink(el, value, hrefFor) {
     el.removeAttribute('href');
     el.classList.add('is-disabled');
   }
+}
+
+function formatLastUpdated(value) {
+  if (!hasValue(value)) return '';
+
+  // Parse as a local date (not UTC midnight) so it doesn't roll back a day
+  // in timezones behind UTC.
+  const date = new Date(`${String(value).trim()}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return '';
+
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 function normalizeProjectDistrict(district) {
@@ -287,6 +309,7 @@ const projectDistrict = document.getElementById('projectDistrict');
 const projectPlannerName = document.getElementById('projectPlannerName');
 const projectPlannerPhone = document.getElementById('projectPlannerPhone');
 const projectPlannerEmail = document.getElementById('projectPlannerEmail');
+const projectLastUpdated = document.getElementById('projectLastUpdated');
 const projectDescription = document.getElementById('projectDescription');
 const infoPanelBody = document.getElementById('infoPanelBody');
 const projectSidebar = document.getElementById('projectSidebar');
@@ -440,6 +463,11 @@ function openInfoPanel(project) {
   projectPlannerName.textContent = displayValue(project.plannerName);
   setContactLink(projectPlannerPhone, project.plannerPhone, (phone) => `tel:${phone.replace(/[^\d+]/g, '')}`);
   setContactLink(projectPlannerEmail, project.plannerEmail, (email) => `mailto:${email}`);
+  if (projectLastUpdated) {
+    const formatted = formatLastUpdated(project.lastUpdated);
+    projectLastUpdated.textContent = formatted ? `Last updated ${formatted}` : '';
+    projectLastUpdated.hidden = !formatted;
+  }
   projectDescription.textContent = displayValue(project.description);
   projectStatus.style.setProperty('--status-color', statusColors[project.status] || statusColors.unknown);
   document.body.classList.add('info-panel-open');

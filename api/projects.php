@@ -25,6 +25,7 @@ $fieldDefaults = [
     'plannerName' => '',
     'plannerPhone' => '',
     'plannerEmail' => '',
+    'lastUpdated' => '',
 ];
 
 function send_json(int $statusCode, array $payload): void

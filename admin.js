@@ -8,7 +8,9 @@ const PROJECT_FIELDS = [
     options: [
       'Proposed',
       'Site Plan Review',
+      'Site Plan Approved',
       'Building Permit Review',
+      'Permit Issued',
       'Under Construction',
       'Completed',
       'Expired',
@@ -32,6 +34,7 @@ const PROJECT_FIELDS = [
   { key: 'valuation', label: 'Valuation', fallback: '' },
   { key: 'developer', label: 'Developer', fallback: '' },
   { key: 'contractor', label: 'Contractor', fallback: '' },
+  { key: 'lastUpdated', label: 'Last Updated', fallback: '', type: 'date' },
   { key: 'plannerName', label: 'Assigned Planner', fallback: '' },
   { key: 'plannerPhone', label: 'Planner Phone', fallback: '', type: 'tel' },
   { key: 'plannerEmail', label: 'Planner Email', fallback: '', type: 'email' },
