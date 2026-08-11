@@ -1,10 +1,11 @@
 const PROJECT_FIELDS = [
-  { key: 'title', label: 'Project Name', fallback: '', required: true },
+  { key: 'title', label: 'Project Name', fallback: '', required: true, section: 'Project Details' },
   {
     key: 'status',
     label: 'Status',
     fallback: 'unknown',
     type: 'select',
+    section: 'Project Details',
     options: [
       'Proposed',
       'Site Plan Review',
@@ -18,32 +19,48 @@ const PROJECT_FIELDS = [
       'unknown',
     ],
   },
-  { key: 'address', label: 'Address', fallback: '' },
+  { key: 'summary', label: 'Summary', fallback: '', wide: true, section: 'Project Details' },
+  { key: 'description', label: 'Description', fallback: '', type: 'textarea', wide: true, section: 'Project Details' },
+  { key: 'completion', label: 'Est. Completion', fallback: '', section: 'Project Details' },
+  { key: 'valuation', label: 'Valuation', fallback: '', section: 'Project Details' },
+
+  { key: 'address', label: 'Address', fallback: '', section: 'Location' },
   {
     key: 'district',
     label: 'District',
     fallback: '',
     type: 'select',
+    section: 'Location',
     options: ['', 'District 1', 'District 2', 'District 3', 'District 4', 'District 5'],
   },
-  { key: 'lat', label: 'Latitude', fallback: '' },
-  { key: 'lng', label: 'Longitude', fallback: '' },
-  { key: 'summary', label: 'Summary', fallback: '', wide: true },
-  { key: 'description', label: 'Description', fallback: '', type: 'textarea', wide: true },
-  { key: 'completion', label: 'Est. Completion', fallback: '' },
-  { key: 'valuation', label: 'Valuation', fallback: '' },
-  { key: 'developer', label: 'Developer', fallback: '' },
-  { key: 'contractor', label: 'Contractor', fallback: '' },
-  { key: 'lastUpdated', label: 'Last Updated', fallback: '', type: 'date' },
-  { key: 'plannerName', label: 'Assigned Planner', fallback: '' },
-  { key: 'plannerPhone', label: 'Planner Phone', fallback: '', type: 'tel' },
-  { key: 'plannerEmail', label: 'Planner Email', fallback: '', type: 'email' },
-  { key: 'photo', label: 'Photo', fallback: '', type: 'url', wide: true },
+  { key: 'lat', label: 'Latitude', fallback: '', section: 'Location' },
+  { key: 'lng', label: 'Longitude', fallback: '', section: 'Location' },
+  { key: '__locationPreview', label: 'Map Preview', type: 'map-preview', wide: true, virtual: true, section: 'Location' },
+
+  { key: 'developer', label: 'Developer', fallback: '', section: 'Team & Contact' },
+  { key: 'contractor', label: 'Contractor', fallback: '', section: 'Team & Contact' },
+  { key: 'plannerName', label: 'Assigned Planner', fallback: '', section: 'Team & Contact' },
+  { key: 'plannerPhone', label: 'Planner Phone', fallback: '', type: 'tel', section: 'Team & Contact' },
+  { key: 'plannerEmail', label: 'Planner Email', fallback: '', type: 'email', section: 'Team & Contact' },
+
+  { key: 'photo', label: 'Photo', fallback: '', type: 'url', wide: true, section: 'Media & Metadata' },
+  { key: 'lastUpdated', label: 'Last Updated', fallback: '', type: 'date', section: 'Media & Metadata' },
 ];
 
-const fieldKeys = PROJECT_FIELDS.map((field) => field.key);
+const DATA_FIELDS = PROJECT_FIELDS.filter((field) => !field.virtual);
+const fieldKeys = DATA_FIELDS.map((field) => field.key);
 const DEFAULT_PROJECT_PHOTO = 'images/project-placeholder.png';
 const API_CANDIDATES = ['api/projects.php', 'api/projects'];
+
+// Pompano Beach's rough municipal extent, generous enough not to flag real
+// edge-of-town projects but tight enough to catch typos, digit transpositions,
+// or swapped lat/lng — the same class of bug that used to send unset
+// coordinates to the middle of the ocean on the public map.
+const POMPANO_CENTER = [26.2421, -80.1248];
+const POMPANO_BOUNDS = { minLat: 26.10, maxLat: 26.40, minLng: -80.25, maxLng: -80.00 };
+
+let locationPreviewMap = null;
+let locationPreviewMarker = null;
 
 const state = {
   projects: [],
@@ -97,7 +114,7 @@ function resolveAssetUrl(assetPath) {
 function normalizeProject(project = {}) {
   const normalized = {};
 
-  PROJECT_FIELDS.forEach((field) => {
+  DATA_FIELDS.forEach((field) => {
     normalized[field.key] = hasValue(project[field.key])
       ? String(project[field.key])
       : field.fallback;
@@ -124,6 +141,7 @@ function updateHeaderHeight() {
 function markDirty(isDirty = true) {
   state.dirty = isDirty;
   saveButton.disabled = !state.projects.length || !state.canSaveToServer || !state.dirty;
+  saveButton.textContent = state.canSaveToServer ? 'Save Changes' : 'Export JSON';
 
   if (!state.projects.length) {
     setStatus('No projects loaded.');
@@ -185,6 +203,86 @@ function loadEditorPhoto(project) {
     fallbackLoader.src = fallbackSrc;
   };
   loader.src = photoSrc;
+}
+
+function toCoordNumber(value) {
+  // Number('') and Number(null/undefined) evaluate to 0, which would read as
+  // a "valid" coordinate and silently point at Null Island. Treat a blank
+  // value as unset instead.
+  return hasValue(value) ? Number(value) : NaN;
+}
+
+function isValidCoordinate(lat, lng) {
+  return Number.isFinite(lat) && Number.isFinite(lng)
+    && lat >= POMPANO_BOUNDS.minLat && lat <= POMPANO_BOUNDS.maxLat
+    && lng >= POMPANO_BOUNDS.minLng && lng <= POMPANO_BOUNDS.maxLng;
+}
+
+function initLocationPreviewMap() {
+  const container = document.getElementById('locationPreviewMap');
+  if (!container || typeof L === 'undefined') return;
+
+  if (locationPreviewMap) {
+    locationPreviewMap.remove();
+    locationPreviewMap = null;
+    locationPreviewMarker = null;
+  }
+
+  locationPreviewMap = L.map(container, {
+    zoomControl: false,
+    attributionControl: false,
+    scrollWheelZoom: false,
+  }).setView(POMPANO_CENTER, 12);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(locationPreviewMap);
+
+  // Freshly-inserted containers can report a stale size to Leaflet until the
+  // browser finishes layout; nudge it once that settles.
+  requestAnimationFrame(() => locationPreviewMap && locationPreviewMap.invalidateSize());
+}
+
+function updateLocationPreview(project) {
+  if (!locationPreviewMap) return;
+
+  const warningEl = document.getElementById('locationPreviewWarning');
+  const setWarning = (message) => {
+    if (!warningEl) return;
+    warningEl.hidden = !message;
+    warningEl.textContent = message || '';
+  };
+
+  if (locationPreviewMarker) {
+    locationPreviewMap.removeLayer(locationPreviewMarker);
+    locationPreviewMarker = null;
+  }
+
+  const latEntered = hasValue(project?.lat);
+  const lngEntered = hasValue(project?.lng);
+
+  if (!latEntered && !lngEntered) {
+    setWarning('');
+    locationPreviewMap.setView(POMPANO_CENTER, 12);
+    return;
+  }
+
+  if (latEntered !== lngEntered) {
+    setWarning('Latitude and Longitude must both be set for the pin to appear on the map.');
+    locationPreviewMap.setView(POMPANO_CENTER, 12);
+    return;
+  }
+
+  const lat = toCoordNumber(project.lat);
+  const lng = toCoordNumber(project.lng);
+
+  if (!isValidCoordinate(lat, lng)) {
+    setWarning('These coordinates look invalid or fall outside the Pompano Beach area — double-check them.');
+    locationPreviewMap.setView(POMPANO_CENTER, 12);
+    return;
+  }
+
+  setWarning('');
+  locationPreviewMarker = L.marker([lat, lng]).addTo(locationPreviewMap);
+  locationPreviewMap.setView([lat, lng], 15);
 }
 
 async function fetchPublishedProjects() {
@@ -325,6 +423,23 @@ function createField(project, field) {
   const group = document.createElement('div');
   group.className = `field-group${field.wide ? ' field-group--wide' : ''}`;
 
+  if (field.type === 'map-preview') {
+    const label = document.createElement('label');
+    label.textContent = field.label;
+
+    const mapEl = document.createElement('div');
+    mapEl.id = 'locationPreviewMap';
+    mapEl.className = 'location-preview-map';
+
+    const warningEl = document.createElement('p');
+    warningEl.id = 'locationPreviewWarning';
+    warningEl.className = 'field-hint field-hint--warning';
+    warningEl.hidden = true;
+
+    group.append(label, mapEl, warningEl);
+    return group;
+  }
+
   const label = document.createElement('label');
   const inputId = `field-${field.key}`;
   label.setAttribute('for', inputId);
@@ -374,6 +489,10 @@ function createField(project, field) {
       loadEditorPhoto(state.projects[state.selectedIndex]);
     }
 
+    if (field.key === 'lat' || field.key === 'lng') {
+      updateLocationPreview(state.projects[state.selectedIndex]);
+    }
+
     renderProjectList();
   });
 
@@ -408,9 +527,20 @@ function renderEditor() {
   editorFieldsEl.hidden = false;
   editorActionsEl.hidden = false;
 
+  let lastSection = null;
   PROJECT_FIELDS.forEach((field) => {
+    if (field.section && field.section !== lastSection) {
+      const heading = document.createElement('h3');
+      heading.className = 'field-section-title';
+      heading.textContent = field.section;
+      editorFieldsEl.appendChild(heading);
+      lastSection = field.section;
+    }
     editorFieldsEl.appendChild(createField(project, field));
   });
+
+  initLocationPreviewMap();
+  updateLocationPreview(project);
 }
 
 function renderAll() {
@@ -466,6 +596,7 @@ function downloadProjectsJson() {
 async function saveProjects() {
   if (!state.canSaveToServer || !state.apiUrl) {
     downloadProjectsJson();
+    setStatus('Downloaded projects.json — upload it to your server to publish these changes.');
     return;
   }
 
@@ -506,7 +637,12 @@ addButton.addEventListener('click', addProject);
 deleteButton.addEventListener('click', deleteSelectedProject);
 saveButton.addEventListener('click', saveProjects);
 exportButton.addEventListener('click', downloadProjectsJson);
-reloadButton.addEventListener('click', loadProjects);
+reloadButton.addEventListener('click', () => {
+  if (state.dirty && !window.confirm('You have unsaved changes. Reload and discard them?')) {
+    return;
+  }
+  loadProjects();
+});
 
 updateHeaderHeight();
 loadProjects();

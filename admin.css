@@ -253,6 +253,35 @@ main.admin-shell {
   font-size: 0.85rem;
 }
 
+.field-hint--warning {
+  color: #b45309;
+  font-weight: 600;
+}
+
+.field-section-title {
+  grid-column: 1 / -1;
+  margin: 10px 0 0;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--border);
+  color: var(--city-blue);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.field-section-title:first-child {
+  margin-top: 0;
+}
+
+.location-preview-map {
+  width: 100%;
+  height: 180px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #e2e8f0;
+}
+
 .empty-editor {
   min-height: 80px;
   display: grid;

@@ -755,10 +755,9 @@ function saveLegendState(isOpen) {
 function syncLegendState() {
   if (!mapLegend) return;
   const saved = getSavedLegendState();
-  // Once the user has explicitly opened/closed it, remember that choice
-  // instead of resetting it every time the viewport crosses the mobile
-  // breakpoint. Only fall back to the responsive default before that.
-  mapLegend.open = saved === null ? !mobileLayoutQuery.matches : saved;
+  // Once the user has explicitly opened/closed it, remember that choice.
+  // Otherwise default to collapsed so it doesn't cover the map unasked.
+  mapLegend.open = saved === null ? false : saved;
 }
 
 if (mapLegend) {
@@ -1050,6 +1049,8 @@ projectSearch.addEventListener('input', () => applyFilter());
 
 clearProjectSearch.addEventListener('click', () => {
   projectSearch.value = '';
+  activeStatusFilters.clear();
+  activeDistrictFilters.clear();
   applyFilter();
   projectSearch.focus();
 });
