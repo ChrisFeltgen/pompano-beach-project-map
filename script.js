@@ -406,7 +406,9 @@ function setProjectPhotoLoading(isLoading) {
 function clearProjectPhoto() {
   projectPhoto.removeAttribute('src');
   projectPhoto.alt = '';
+  projectPhoto.title = '';
   projectPhoto.style.cursor = 'default';
+  projectPhotoFrame?.classList.remove('is-clickable');
 }
 
 function loadProjectPhoto(project) {
@@ -420,7 +422,9 @@ function loadProjectPhoto(project) {
 
     projectPhoto.src = src;
     projectPhoto.alt = alt;
+    projectPhoto.title = isProjectPhoto ? 'Click to view full image' : '';
     projectPhoto.style.cursor = isProjectPhoto ? 'pointer' : 'default';
+    projectPhotoFrame?.classList.toggle('is-clickable', isProjectPhoto);
     setProjectPhotoLoading(false);
   };
   const showPhotoUnavailable = () => {
@@ -529,7 +533,8 @@ if (welcomeModal) {
 }
 
 function openImageModal() {
-  if (!activeProject || projectPhotoFrame?.classList.contains('is-loading') || !projectPhoto.currentSrc) return;
+  if (!activeProject || !projectPhotoFrame?.classList.contains('is-clickable')) return;
+  if (projectPhotoFrame.classList.contains('is-loading') || !projectPhoto.currentSrc) return;
   modalImage.src = projectPhoto.currentSrc || projectPhoto.src;
   modalCaption.textContent = activeProject.title || 'Project image';
   imageModal.classList.add('open');

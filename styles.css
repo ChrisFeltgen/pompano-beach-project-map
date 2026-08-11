@@ -445,6 +445,37 @@ main {
   opacity: 0.95;
 }
 
+.project-photo-frame__hint {
+  display: none;
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.55);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.25);
+  pointer-events: none;
+  transition: background 0.16s ease, transform 0.16s ease;
+}
+
+.project-photo-frame__hint svg {
+  width: 16px;
+  height: 16px;
+}
+
+.project-photo-frame.is-clickable:not(.is-loading) .project-photo-frame__hint {
+  display: flex;
+}
+
+.project-photo-frame.is-clickable:not(.is-loading):hover .project-photo-frame__hint {
+  background: rgba(15, 23, 42, 0.72);
+  transform: scale(1.08);
+}
+
 @keyframes project-photo-spin {
   to {
     transform: rotate(360deg);
