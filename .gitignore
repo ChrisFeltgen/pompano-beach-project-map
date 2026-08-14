@@ -1,0 +1,5 @@
+# Real admin credentials — never commit these. Copy api/auth-config.example.php
+# to api/auth-config.php and fill in real values; that file stays local/server-only.
+api/auth-config.php
+
+.DS_Store

@@ -1,10 +1,13 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const root = __dirname;
 const projectsFile = path.join(root, 'projects.json');
+const imagesDir = path.join(root, 'images');
 const port = Number(process.env.PORT || 5174);
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
 
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -40,6 +43,56 @@ const projectFields = {
   lastUpdated: '',
 };
 
+// Mirrors api/auth.php for local testing, but stays opt-in: set ADMIN_USER
+// and ADMIN_PASS to enable it, otherwise the local dev server is unprotected
+// for convenience (the real gate is the PHP one on the actual host).
+function checkLocalAdminAuth(request, response) {
+  const expectedUser = process.env.ADMIN_USER;
+  const expectedPass = process.env.ADMIN_PASS;
+
+  if (!expectedUser || !expectedPass) {
+    return true;
+  }
+
+  const header = request.headers.authorization || '';
+  const match = /^Basic\s+(.+)$/i.exec(header);
+
+  if (match) {
+    const decoded = Buffer.from(match[1], 'base64').toString('utf8');
+    const separatorIndex = decoded.indexOf(':');
+    const providedUser = separatorIndex === -1 ? decoded : decoded.slice(0, separatorIndex);
+    const providedPass = separatorIndex === -1 ? '' : decoded.slice(separatorIndex + 1);
+
+    if (providedUser === expectedUser && providedPass === expectedPass) {
+      return true;
+    }
+  }
+
+  response.writeHead(401, {
+    'WWW-Authenticate': 'Basic realm="Pompano Beach Project Map Admin"',
+    'Content-Type': 'text/plain; charset=utf-8',
+  });
+  response.end('Authentication required.\n');
+  return false;
+}
+
+async function serveAdminPage(request, response) {
+  if (!checkLocalAdminAuth(request, response)) return;
+
+  try {
+    const content = await fs.promises.readFile(path.join(root, 'admin.php'), 'utf8');
+    // Node doesn't execute PHP — strip the leading auth-check tag and serve
+    // the rest of the markup as-is, matching what the real PHP host renders
+    // once a request is authenticated.
+    const html = content.replace(/^<\?php[\s\S]*?\?>\s*/, '');
+    response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    response.end(html);
+  } catch {
+    response.writeHead(404);
+    response.end('Not Found');
+  }
+}
+
 function sendJson(response, status, data) {
   response.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
@@ -65,6 +118,157 @@ function readRequestBody(request) {
     request.on('end', () => resolve(body));
     request.on('error', reject);
   });
+}
+
+function readRequestBuffer(request, maxBytes) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+
+    request.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > maxBytes) {
+        reject(new Error('Upload is too large'));
+        request.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+
+    request.on('end', () => resolve(Buffer.concat(chunks)));
+    request.on('error', reject);
+  });
+}
+
+// Minimal multipart/form-data parser — just enough to pull out the fields a
+// browser's FormData actually sends for this form (a file + a couple of text
+// fields). Buffer-based throughout so binary image data isn't corrupted by
+// string re-encoding.
+function parseMultipart(buffer, contentType) {
+  const boundaryMatch = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(contentType || '');
+  const boundary = boundaryMatch ? (boundaryMatch[1] || boundaryMatch[2]).trim() : null;
+  if (!boundary) {
+    throw new Error('Missing multipart boundary');
+  }
+
+  const boundaryBuffer = Buffer.from(`--${boundary}`);
+  const parts = [];
+  let start = buffer.indexOf(boundaryBuffer);
+
+  while (start !== -1) {
+    const next = buffer.indexOf(boundaryBuffer, start + boundaryBuffer.length);
+    if (next === -1) break;
+
+    let chunk = buffer.subarray(start + boundaryBuffer.length, next);
+    if (chunk.subarray(0, 2).toString('latin1') === '\r\n') chunk = chunk.subarray(2);
+    if (chunk.subarray(-2).toString('latin1') === '\r\n') chunk = chunk.subarray(0, -2);
+
+    const headerEnd = chunk.indexOf('\r\n\r\n');
+    if (headerEnd !== -1) {
+      const rawHeaders = chunk.subarray(0, headerEnd).toString('utf8');
+      const body = chunk.subarray(headerEnd + 4);
+      const dispositionMatch = /name="([^"]*)"(?:;\s*filename="([^"]*)")?/i.exec(rawHeaders);
+
+      if (dispositionMatch) {
+        parts.push({
+          name: dispositionMatch[1],
+          filename: dispositionMatch[2] || null,
+          data: body,
+        });
+      }
+    }
+
+    start = next;
+  }
+
+  return parts;
+}
+
+const IMAGE_SIGNATURES = [
+  { ext: 'png', test: (b) => b.length >= 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 },
+  { ext: 'jpg', test: (b) => b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
+  { ext: 'gif', test: (b) => b.length >= 6 && ['GIF87a', 'GIF89a'].includes(b.subarray(0, 6).toString('ascii')) },
+  {
+    ext: 'webp',
+    test: (b) => b.length >= 12 && b.subarray(0, 4).toString('ascii') === 'RIFF' && b.subarray(8, 12).toString('ascii') === 'WEBP',
+  },
+];
+
+function detectImageExtension(buffer) {
+  // Sniff the file's actual magic bytes rather than trusting the client's
+  // claimed filename/content-type — this is what stops someone uploading a
+  // disguised .php file as "photo.png".
+  const match = IMAGE_SIGNATURES.find((signature) => signature.test(buffer));
+  return match ? match.ext : null;
+}
+
+function sanitizeBaseName(name) {
+  const cleaned = String(name || '').replace(/[^A-Za-z0-9]+/g, '').slice(0, 60);
+  return cleaned || 'Project';
+}
+
+async function handleUploadApi(request, response) {
+  if (request.method !== 'POST') {
+    response.writeHead(405, { Allow: 'POST' });
+    response.end('Method Not Allowed');
+    return;
+  }
+
+  if (!checkLocalAdminAuth(request, response)) return;
+
+  const contentType = request.headers['content-type'] || '';
+  if (!contentType.toLowerCase().startsWith('multipart/form-data')) {
+    sendJson(response, 400, { error: 'Expected a multipart/form-data upload.' });
+    return;
+  }
+
+  let buffer;
+  try {
+    buffer = await readRequestBuffer(request, MAX_UPLOAD_BYTES + 1024 * 1024);
+  } catch (error) {
+    sendJson(response, 400, { error: error.message });
+    return;
+  }
+
+  let parts;
+  try {
+    parts = parseMultipart(buffer, contentType);
+  } catch {
+    sendJson(response, 400, { error: 'Could not parse the upload.' });
+    return;
+  }
+
+  const filePart = parts.find((part) => part.name === 'photo' && part.filename);
+  if (!filePart || !filePart.data || !filePart.data.length) {
+    sendJson(response, 400, { error: 'No file was uploaded.' });
+    return;
+  }
+
+  if (filePart.data.length > MAX_UPLOAD_BYTES) {
+    sendJson(response, 400, { error: 'Image must be smaller than 10 MB.' });
+    return;
+  }
+
+  const extension = detectImageExtension(filePart.data);
+  if (!extension) {
+    sendJson(response, 400, { error: 'File must be a JPG, PNG, GIF, or WEBP image.' });
+    return;
+  }
+
+  const namePart = parts.find((part) => part.name === 'name');
+  const safeName = sanitizeBaseName(namePart ? namePart.data.toString('utf8') : '');
+  const filename = `${safeName}-${crypto.randomBytes(4).toString('hex')}.${extension}`;
+  const destination = path.join(imagesDir, filename);
+
+  try {
+    await fs.promises.mkdir(imagesDir, { recursive: true });
+    await fs.promises.writeFile(destination, filePart.data);
+  } catch {
+    sendJson(response, 500, { error: 'The server could not save the uploaded file.' });
+    return;
+  }
+
+  sendJson(response, 200, { ok: true, path: `images/${filename}` });
 }
 
 function normalizeProject(project) {
@@ -93,6 +297,8 @@ async function handleProjectsApi(request, response) {
   }
 
   if (request.method === 'POST' || request.method === 'PUT') {
+    if (!checkLocalAdminAuth(request, response)) return;
+
     const body = await readRequestBody(request);
     const data = JSON.parse(body);
 
@@ -113,8 +319,7 @@ async function handleProjectsApi(request, response) {
 
 function getStaticFilePath(urlPathname) {
   const pathname = urlPathname === '/' ? '/index.html' : urlPathname;
-  const cleanPathname = pathname === '/admin' ? '/admin.html' : pathname;
-  const filePath = path.resolve(root, `.${decodeURIComponent(cleanPathname)}`);
+  const filePath = path.resolve(root, `.${decodeURIComponent(pathname)}`);
 
   if (!filePath.startsWith(root)) {
     return null;
@@ -149,8 +354,18 @@ const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
 
   try {
+    if (url.pathname === '/admin' || url.pathname === '/admin.php' || url.pathname === '/admin.html') {
+      await serveAdminPage(request, response);
+      return;
+    }
+
     if (url.pathname === '/api/projects') {
       await handleProjectsApi(request, response);
+      return;
+    }
+
+    if (url.pathname === '/api/upload') {
+      await handleUploadApi(request, response);
       return;
     }
 
@@ -161,5 +376,5 @@ const server = http.createServer(async (request, response) => {
 });
 
 server.listen(port, '127.0.0.1', () => {
-  console.log(`Project maintenance server running at http://127.0.0.1:${port}/admin.html`);
+  console.log(`Project maintenance server running at http://127.0.0.1:${port}/admin`);
 });

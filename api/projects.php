@@ -75,10 +75,15 @@ try {
     $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 
     if ($method === 'GET') {
+        // Reading the list is public data — it's the same content anyone can
+        // already fetch from the static projects.json file. Only writes
+        // (below) need authentication.
         http_response_code(200);
         echo json_encode(read_projects_file($projectsFile), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
         exit;
     }
+
+    require __DIR__ . '/auth.php';
 
     if ($method !== 'POST' && $method !== 'PUT') {
         header('Allow: GET, POST, PUT');

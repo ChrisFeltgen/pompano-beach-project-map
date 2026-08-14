@@ -101,6 +101,43 @@ function getApiUrlCandidates() {
   return API_CANDIDATES.map((path) => new URL(path, window.location.href).toString());
 }
 
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB, matches the server-side limit
+
+function getUploadUrl() {
+  // Derive the upload endpoint from whichever projects API URL actually
+  // responded, so it's guaranteed to be the same server/environment rather
+  // than re-probing a separate candidate list.
+  if (!state.apiUrl) return null;
+  if (state.apiUrl.endsWith('projects.php')) return state.apiUrl.replace(/projects\.php$/, 'upload.php');
+  if (state.apiUrl.endsWith('projects')) return state.apiUrl.replace(/projects$/, 'upload');
+  return null;
+}
+
+async function uploadProjectPhoto(file, project) {
+  const uploadUrl = getUploadUrl();
+
+  if (!state.canSaveToServer || !uploadUrl) {
+    throw new Error('Upload requires a connected server — paste an image URL instead.');
+  }
+
+  if (file.size > MAX_UPLOAD_BYTES) {
+    throw new Error('Image must be smaller than 10 MB.');
+  }
+
+  const formData = new FormData();
+  formData.append('photo', file);
+  formData.append('name', project?.title || 'project');
+
+  const response = await fetch(uploadUrl, { method: 'POST', body: formData });
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok || !result.path) {
+    throw new Error(result.error || `Upload failed with status ${response.status}`);
+  }
+
+  return result.path;
+}
+
 function resolveAssetUrl(assetPath) {
   const path = hasValue(assetPath) ? String(assetPath).trim() : DEFAULT_PROJECT_PHOTO;
 
@@ -505,7 +542,64 @@ function createField(project, field) {
     group.appendChild(hint);
   }
 
+  if (field.key === 'photo') {
+    group.appendChild(createPhotoUploadControl(control));
+  }
+
   return group;
+}
+
+function createPhotoUploadControl(urlInput) {
+  const wrap = document.createElement('div');
+  wrap.className = 'photo-upload';
+
+  const fileInputId = 'field-photo-upload';
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.id = fileInputId;
+  fileInput.className = 'photo-upload__input';
+  fileInput.accept = 'image/png,image/jpeg,image/gif,image/webp';
+
+  const uploadButton = document.createElement('label');
+  uploadButton.setAttribute('for', fileInputId);
+  uploadButton.className = 'photo-upload__button';
+  uploadButton.textContent = 'Upload Photo…';
+
+  const statusEl = document.createElement('span');
+  statusEl.className = 'photo-upload__status';
+
+  if (!state.canSaveToServer) {
+    fileInput.disabled = true;
+    uploadButton.classList.add('is-disabled');
+    statusEl.textContent = 'Connect to a server to enable photo uploads.';
+  }
+
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+
+    const project = state.projects[state.selectedIndex];
+    statusEl.classList.remove('is-error');
+    statusEl.textContent = 'Uploading…';
+
+    try {
+      const uploadedPath = await uploadProjectPhoto(file, project);
+      urlInput.value = uploadedPath;
+      project.photo = uploadedPath;
+      markDirty();
+      loadEditorPhoto(project);
+      renderProjectList();
+      statusEl.textContent = `Uploaded as ${uploadedPath}`;
+    } catch (error) {
+      statusEl.classList.add('is-error');
+      statusEl.textContent = error.message;
+    } finally {
+      fileInput.value = '';
+    }
+  });
+
+  wrap.append(fileInput, uploadButton, statusEl);
+  return wrap;
 }
 
 function renderEditor() {
