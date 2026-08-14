@@ -280,6 +280,30 @@ body {
   opacity: 0.75;
 }
 
+/* Deliberately understated — an entry point for staff, not something a
+   visitor exploring projects should notice or be tempted to click. Stays
+   keyboard/focus reachable and brightens on hover/focus so it's never
+   truly invisible, just low-priority. Icon-only (a gear), so there's no
+   label text for a curious visitor to read in the first place. */
+.city-dept-bar__staff-link {
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 0.45;
+}
+
+.city-dept-bar__staff-link svg {
+  width: 15px;
+  height: 15px;
+}
+
+.city-dept-bar__staff-link:hover,
+.city-dept-bar__staff-link:focus-visible {
+  opacity: 1;
+  text-decoration: none !important;
+}
+
 main {
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);

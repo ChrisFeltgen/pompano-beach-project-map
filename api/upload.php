@@ -6,6 +6,8 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
 require __DIR__ . '/auth.php';
+require __DIR__ . '/lib/photoCleanup.php';
+require_admin_auth('json');
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
 
@@ -24,6 +26,19 @@ function send_json(int $statusCode, array $payload): void
     http_response_code($statusCode);
     echo json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
     exit;
+}
+
+// Best-effort cleanup of the photo a new upload is replacing. The actual
+// deletion (and its safety checks) live in lib/photoCleanup.php, shared
+// with api/delete-photo.php's explicit Remove Photo action.
+function delete_old_photo_if_replaced(string $oldPhoto, string $newPhoto, string $imagesDir): void
+{
+    $oldPhoto = trim($oldPhoto);
+    if ($oldPhoto === '' || $oldPhoto === $newPhoto) {
+        return;
+    }
+
+    delete_admin_photo($oldPhoto, $imagesDir);
 }
 
 try {
@@ -87,7 +102,11 @@ try {
         send_json(500, ['error' => 'The server could not save the uploaded file.']);
     }
 
-    send_json(200, ['ok' => true, 'path' => 'images/' . $filename]);
+    $newPath = 'images/' . $filename;
+    $oldPhoto = isset($_POST['oldPhoto']) ? (string) $_POST['oldPhoto'] : '';
+    delete_old_photo_if_replaced($oldPhoto, $newPath, $imagesDir);
+
+    send_json(200, ['ok' => true, 'path' => $newPath]);
 } catch (Throwable $error) {
     send_json(500, ['error' => $error->getMessage()]);
 }

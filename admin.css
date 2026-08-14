@@ -7,13 +7,11 @@ body {
 main.admin-shell {
   display: flex;
   flex-direction: column;
-  gap: 18px;
   height: calc(100vh - var(--header-height, 136px));
   padding: 24px;
   overflow: hidden;
 }
 
-.admin-toolbar,
 .admin-list-panel,
 .admin-editor {
   background: var(--panel);
@@ -22,26 +20,42 @@ main.admin-shell {
   box-shadow: 0 2px 10px rgba(31, 41, 51, 0.06);
 }
 
+/* One merged header block for the sidebar: title/status, page-level actions,
+   and the project search/add controls all stack here instead of splitting
+   into two bordered sections — flex's default cross-axis stretch is what
+   makes the search input and buttons fill the column without extra CSS. */
 .admin-toolbar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 18px;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
 }
 
 .admin-toolbar h1 {
   margin: 0;
   color: var(--city-blue);
-  font-size: clamp(1.35rem, 2vw, 1.9rem);
+  font-size: clamp(1.1rem, 2vw, 1.35rem);
 }
 
 .admin-toolbar p {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   color: var(--muted);
+  font-size: 0.88rem;
 }
 
-.admin-actions,
+/* Reload/Export share a row; Save Changes — the primary action — gets its
+   own full-width row below so it reads as the one that matters. */
+.admin-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.admin-actions #saveProjects {
+  grid-column: 1 / -1;
+}
+
 .editor-actions {
   display: flex;
   align-items: center;
@@ -66,18 +80,6 @@ main.admin-shell {
   overflow: hidden;
 }
 
-.admin-list-panel__header {
-  display: grid;
-  gap: 10px;
-  padding: 16px;
-  border-bottom: 1px solid var(--border);
-}
-
-.admin-list-panel__header label {
-  color: var(--city-blue);
-  font-weight: 700;
-}
-
 .admin-list-panel input,
 .field-control,
 .field-textarea {
@@ -90,14 +92,21 @@ main.admin-shell {
   font: inherit;
 }
 
-.admin-list-panel input,
-.field-control {
+.admin-list-panel input {
   min-height: 42px;
   padding: 9px 10px;
 }
 
+/* Slightly shorter than the sidebar's search input — the project editor has
+   a dozen-plus of these stacked, so shaving a few px each adds up to real
+   scroll savings without the fields feeling cramped. */
+.field-control {
+  min-height: 38px;
+  padding: 7px 10px;
+}
+
 .field-textarea {
-  min-height: 128px;
+  min-height: 88px;
   padding: 10px;
   resize: vertical;
 }
@@ -111,7 +120,7 @@ main.admin-shell {
 
 .admin-project-list {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   min-height: 0;
   margin: 0;
   padding: 12px;
@@ -120,36 +129,15 @@ main.admin-shell {
   overflow: auto;
 }
 
-.admin-project-list button {
-  width: 100%;
-  display: block;
-  text-align: left;
-}
-
-.admin-project-list button[aria-current="true"] {
-  border-color: var(--city-blue);
-  background: var(--city-blue);
-  color: #fff;
-}
-
-.admin-project-list .project-list-title {
-  display: block;
-  font-weight: 700;
-}
-
-.admin-project-list .project-list-meta {
-  display: block;
-  margin-top: 4px;
-  font-size: 0.86rem;
-  opacity: 0.82;
-}
+/* Individual rows reuse .project-list-item and friends from styles.css so
+   the admin list reads as the same list as the public map. */
 
 .admin-editor {
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  padding: 18px;
+  padding: 16px;
   overflow: hidden;
 }
 
@@ -163,9 +151,9 @@ main.admin-shell {
 }
 
 .editor-title {
-  margin: 0 0 18px;
+  margin: 0 0 10px;
   color: var(--city-blue);
-  font-size: clamp(1.2rem, 1.8vw, 1.7rem);
+  font-size: clamp(1.1rem, 1.6vw, 1.5rem);
   line-height: 1.2;
   text-align: center;
 }
@@ -178,9 +166,9 @@ main.admin-shell {
 
 .admin-photo-frame {
   position: relative;
-  width: min(100%, 420px);
-  min-height: 210px;
-  margin-bottom: 18px;
+  width: min(100%, 300px);
+  min-height: 130px;
+  margin-bottom: 12px;
   margin-inline: auto;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -191,7 +179,7 @@ main.admin-shell {
 .admin-photo-frame img {
   width: 100%;
   height: 100%;
-  min-height: 210px;
+  min-height: 130px;
   display: block;
   object-fit: cover;
   transition: opacity 0.2s ease;
@@ -228,15 +216,39 @@ main.admin-shell {
   }
 }
 
+/* Matches .admin-photo-frame's width so the Photo URL/Upload control reads
+   as one cluster with the preview image above it, instead of a full-width
+   field down in the general grid. */
+.admin-photo-controls {
+  width: min(100%, 300px);
+  margin: 0 auto 14px;
+}
+
 .editor-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 12px;
+}
+
+/* `display: grid`/`flex` above beats the browser's default [hidden] rule at
+   equal specificity (author styles always win over the UA stylesheet), so
+   without this the Delete button and field grid stayed visible even while
+   `hidden` was set with no project selected. */
+.editor-fields[hidden],
+.editor-actions[hidden] {
+  display: none;
+}
+
+/* Same [hidden]-vs-author-styles issue as above — .city-nav a (styles.css)
+   sets display: inline-flex, which would otherwise keep Manage Users
+   visible in the header nav even while hidden for non-admins. */
+#manageUsersButton[hidden] {
+  display: none;
 }
 
 .field-group {
   display: grid;
-  gap: 7px;
+  gap: 5px;
 }
 
 .field-group--wide {
@@ -301,6 +313,30 @@ main.admin-shell {
   cursor: not-allowed;
 }
 
+.photo-upload__remove {
+  min-height: 38px;
+  padding: 8px 14px;
+  border: 1px solid #dc2626;
+  border-radius: 4px;
+  background: #fff;
+  color: #b91c1c;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.photo-upload__remove:hover,
+.photo-upload__remove:focus-visible {
+  background: #fee2e2;
+  border-color: #b91c1c;
+  color: #991b1b;
+}
+
+.photo-current-path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  word-break: break-all;
+}
+
 .photo-upload__status {
   color: var(--muted);
   font-size: 0.85rem;
@@ -313,11 +349,11 @@ main.admin-shell {
 
 .field-section-title {
   grid-column: 1 / -1;
-  margin: 10px 0 0;
-  padding-bottom: 6px;
+  margin: 6px 0 0;
+  padding-bottom: 4px;
   border-bottom: 2px solid var(--border);
   color: var(--city-blue);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -327,28 +363,57 @@ main.admin-shell {
   margin-top: 0;
 }
 
+.location-section {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.location-fields-col {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.location-map-col {
+  display: grid;
+}
+
 .location-preview-map {
   width: 100%;
-  height: 180px;
+  aspect-ratio: 5 / 3;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: #e2e8f0;
+  cursor: crosshair;
 }
 
-.empty-editor {
-  min-height: 80px;
-  display: grid;
-  place-items: center;
-  color: var(--muted);
-  text-align: center;
-  border: 1px dashed var(--border);
-  border-radius: 8px;
-  background: #f8fafc;
+/* A plain button under the map rather than an overlay on top of it, so it
+   doesn't have to compete with Leaflet's own pane/control stacking. */
+.location-preview-clear {
+  justify-self: start;
+  padding: 6px 12px;
+  border: 1px solid #dc2626;
+  border-radius: 4px;
+  background: #fff;
+  color: #b91c1c;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.location-preview-clear:hover,
+.location-preview-clear:focus-visible {
+  background: #fee2e2;
+  border-color: #b91c1c;
+  color: #991b1b;
 }
 
 .editor-actions {
-  margin-top: 18px;
-  padding-top: 18px;
+  margin-top: 12px;
+  padding-top: 12px;
   border-top: 1px solid var(--border);
 }
 
@@ -381,6 +446,130 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.user-manager-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-manager-modal[hidden] {
+  display: none;
+}
+
+.user-manager-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.user-manager-modal__content {
+  position: relative;
+  width: min(92vw, 480px);
+  max-height: 88vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 24px 72px rgba(15, 23, 42, 0.28);
+}
+
+.user-manager-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.user-manager-modal__header h2 {
+  margin: 0;
+  color: var(--city-blue);
+  font-size: 1.2rem;
+}
+
+#userManagerClose {
+  min-height: 32px;
+  min-width: 32px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+#userManagerClose:hover,
+#userManagerClose:focus-visible {
+  color: var(--text);
+}
+
+.user-manager-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.user-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.user-row__name {
+  font-weight: 700;
+  color: var(--city-ink);
+  margin-right: auto;
+}
+
+.user-row__you {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 0.82rem;
+}
+
+.user-row__role {
+  min-height: 34px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+  font-size: 0.85rem;
+}
+
+.user-row__reset,
+.user-row__remove {
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+}
+
+.user-manager-add-form {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.user-manager-add-form h3 {
+  margin: 0;
+  color: var(--city-blue);
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 @media (max-width: 900px) {
   main.admin-shell {
     padding: 16px 0.75rem 20px;
@@ -389,17 +578,10 @@ button:disabled {
     overflow: auto;
   }
 
-  .admin-toolbar {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .admin-actions,
   .editor-actions {
     justify-content: stretch;
   }
 
-  .admin-actions button,
   .editor-actions button {
     flex: 1 1 140px;
     text-align: center;
@@ -418,4 +600,57 @@ button:disabled {
   .editor-fields {
     grid-template-columns: 1fr;
   }
+
+  .location-section {
+    grid-template-columns: 1fr;
+  }
+
+  .location-preview-map {
+    aspect-ratio: 16 / 9;
+  }
+}
+
+.login-shell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - var(--header-height, 96px));
+  padding: 24px;
+}
+
+.login-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(100%, 360px);
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 2px 10px rgba(31, 41, 51, 0.06);
+}
+
+.login-card h1 {
+  margin: 0;
+  color: var(--city-blue);
+  font-size: 1.4rem;
+}
+
+.login-card .field-hint {
+  margin: -6px 0 4px;
+}
+
+.login-card .primary-action {
+  margin-top: 4px;
+}
+
+.login-error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #dc2626;
+  border-radius: 4px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 0.88rem;
+  font-weight: 600;
 }

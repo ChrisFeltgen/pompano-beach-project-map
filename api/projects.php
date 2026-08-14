@@ -84,6 +84,7 @@ try {
     }
 
     require __DIR__ . '/auth.php';
+    require_admin_auth('json');
 
     if ($method !== 'POST' && $method !== 'PUT') {
         header('Allow: GET, POST, PUT');

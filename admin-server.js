@@ -2,6 +2,8 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { verifyBasicAuth, hasConfiguredUsers } = require('./api/lib/adminUsers');
+const { deleteAdminPhoto } = require('./api/lib/photoCleanup');
 
 const root = __dirname;
 const projectsFile = path.join(root, 'projects.json');
@@ -43,29 +45,17 @@ const projectFields = {
   lastUpdated: '',
 };
 
-// Mirrors api/auth.php for local testing, but stays opt-in: set ADMIN_USER
-// and ADMIN_PASS to enable it, otherwise the local dev server is unprotected
-// for convenience (the real gate is the PHP one on the actual host).
+// Mirrors api/auth.php for local testing, but stays opt-in: set ADMIN_USERS
+// (or the legacy ADMIN_USER/ADMIN_PASS pair) to enable it, otherwise the
+// local dev server is unprotected for convenience (the real gate is the PHP
+// one on the actual host). See api/lib/adminUsers.js for account config.
 function checkLocalAdminAuth(request, response) {
-  const expectedUser = process.env.ADMIN_USER;
-  const expectedPass = process.env.ADMIN_PASS;
-
-  if (!expectedUser || !expectedPass) {
+  if (!hasConfiguredUsers()) {
     return true;
   }
 
-  const header = request.headers.authorization || '';
-  const match = /^Basic\s+(.+)$/i.exec(header);
-
-  if (match) {
-    const decoded = Buffer.from(match[1], 'base64').toString('utf8');
-    const separatorIndex = decoded.indexOf(':');
-    const providedUser = separatorIndex === -1 ? decoded : decoded.slice(0, separatorIndex);
-    const providedPass = separatorIndex === -1 ? '' : decoded.slice(separatorIndex + 1);
-
-    if (providedUser === expectedUser && providedPass === expectedPass) {
-      return true;
-    }
+  if (verifyBasicAuth(request.headers.authorization)) {
+    return true;
   }
 
   response.writeHead(401, {
@@ -83,8 +73,14 @@ async function serveAdminPage(request, response) {
     const content = await fs.promises.readFile(path.join(root, 'admin.php'), 'utf8');
     // Node doesn't execute PHP — strip the leading auth-check tag and serve
     // the rest of the markup as-is, matching what the real PHP host renders
-    // once a request is authenticated.
-    const html = content.replace(/^<\?php[\s\S]*?\?>\s*/, '');
+    // once a request is authenticated. admin.php also has one later inline
+    // PHP expression (window.__ADMIN_USER__, filled from the session) —
+    // there's no session here, so it becomes null, which is also the
+    // correct value: it's what keeps the Manage Users button hidden on
+    // this backend, same as everywhere else that feature isn't available.
+    const html = content
+      .replace(/^<\?php[\s\S]*?\?>\s*/, '')
+      .replace(/<\?php\s+echo\s+json_encode\(\$currentAdminUser\);\s*\?>/, 'null');
     response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     response.end(html);
   } catch {
@@ -207,6 +203,16 @@ function sanitizeBaseName(name) {
   return cleaned || 'Project';
 }
 
+// Best-effort cleanup of the photo a new upload is replacing. The actual
+// deletion (and its safety checks) live in api/lib/photoCleanup.js, shared
+// with the /api/delete-photo route's explicit Remove Photo action.
+async function deleteOldPhotoIfReplaced(oldPhoto, newPath) {
+  const trimmed = String(oldPhoto || '').trim();
+  if (!trimmed || trimmed === newPath) return;
+
+  await deleteAdminPhoto(trimmed, imagesDir);
+}
+
 async function handleUploadApi(request, response) {
   if (request.method !== 'POST') {
     response.writeHead(405, { Allow: 'POST' });
@@ -268,7 +274,33 @@ async function handleUploadApi(request, response) {
     return;
   }
 
-  sendJson(response, 200, { ok: true, path: `images/${filename}` });
+  const newPath = `images/${filename}`;
+  const oldPhotoPart = parts.find((part) => part.name === 'oldPhoto');
+  await deleteOldPhotoIfReplaced(oldPhotoPart ? oldPhotoPart.data.toString('utf8') : '', newPath);
+
+  sendJson(response, 200, { ok: true, path: newPath });
+}
+
+async function handleDeletePhotoApi(request, response) {
+  if (request.method !== 'POST') {
+    response.writeHead(405, { Allow: 'POST' });
+    response.end('Method Not Allowed');
+    return;
+  }
+
+  if (!checkLocalAdminAuth(request, response)) return;
+
+  let payload;
+  try {
+    const body = await readRequestBody(request);
+    payload = JSON.parse(body || '{}');
+  } catch {
+    sendJson(response, 400, { error: 'Expected a JSON body.' });
+    return;
+  }
+
+  const deleted = await deleteAdminPhoto(payload && payload.path, imagesDir);
+  sendJson(response, 200, { ok: true, deleted });
 }
 
 function normalizeProject(project) {
@@ -366,6 +398,11 @@ const server = http.createServer(async (request, response) => {
 
     if (url.pathname === '/api/upload') {
       await handleUploadApi(request, response);
+      return;
+    }
+
+    if (url.pathname === '/api/delete-photo') {
+      await handleDeletePhotoApi(request, response);
       return;
     }
 

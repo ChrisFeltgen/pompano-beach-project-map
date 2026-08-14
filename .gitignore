@@ -1,5 +1,5 @@
-# Real admin credentials — never commit these. Copy api/auth-config.example.php
-# to api/auth-config.php and fill in real values; that file stays local/server-only.
-api/auth-config.php
+# Real admin credentials — never commit these. Copy api/auth-config.example.json
+# to api/auth-config.json and fill in real values; that file stays local/server-only.
+api/auth-config.json
 
 .DS_Store
