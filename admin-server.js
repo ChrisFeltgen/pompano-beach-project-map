@@ -36,6 +36,8 @@ const projectFields = {
   valuation: '',
   developer: '',
   contractor: '',
+  pzProject: '',
+  buildingPermit: '',
   lat: '',
   lng: '',
   district: '',

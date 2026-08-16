@@ -952,6 +952,31 @@ main {
   text-overflow: ellipsis;
 }
 
+.print-book-link {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 2px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.print-book-link svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.print-book-link:hover,
+.print-book-link:focus-visible {
+  color: var(--city-blue);
+  border-bottom-color: var(--city-blue);
+}
+
 .search-control button {
   min-height: 44px;
   text-align: center;

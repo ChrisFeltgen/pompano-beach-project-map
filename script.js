@@ -306,6 +306,8 @@ const projectValuation = document.getElementById('projectValuation');
 const projectDeveloper = document.getElementById('projectDeveloper');
 const projectContractor = document.getElementById('projectContractor');
 const projectDistrict = document.getElementById('projectDistrict');
+const projectPzProject = document.getElementById('projectPzProject');
+const projectBuildingPermit = document.getElementById('projectBuildingPermit');
 const projectPlannerName = document.getElementById('projectPlannerName');
 const projectPlannerPhone = document.getElementById('projectPlannerPhone');
 const projectPlannerEmail = document.getElementById('projectPlannerEmail');
@@ -464,6 +466,8 @@ function openInfoPanel(project) {
   projectDeveloper.textContent = displayValue(project.developer);
   projectContractor.textContent = displayValue(project.contractor);
   projectDistrict.textContent = displayValue(project.district);
+  projectPzProject.textContent = displayValue(project.pzProject);
+  projectBuildingPermit.textContent = displayValue(project.buildingPermit);
   projectPlannerName.textContent = displayValue(project.plannerName);
   setContactLink(projectPlannerPhone, project.plannerPhone, (phone) => `tel:${phone.replace(/[^\d+]/g, '')}`);
   setContactLink(projectPlannerEmail, project.plannerEmail, (email) => `mailto:${email}`);
@@ -861,6 +865,8 @@ fetchProjectsData()
         completion: displayValue(project.completion, ''),
         developer: displayValue(project.developer, ''),
         contractor: displayValue(project.contractor, ''),
+        pzProject: displayValue(project.pzProject, ''),
+        buildingPermit: displayValue(project.buildingPermit, ''),
         photo: displayValue(project.photo, ''),
         plannerName: displayValue(project.plannerName, ''),
         plannerPhone: displayValue(project.plannerPhone, ''),

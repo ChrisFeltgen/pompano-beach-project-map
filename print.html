@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Printable Project Book</title>
+  <link rel="shortcut icon" type="image/x-icon" href="https://www.pompanobeachfl.gov/pompanobeachfl/assets/images/favicon.ico?v=2" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="book.css" />
+</head>
+<body>
+  <header class="city-site-header no-print">
+    <div class="city-site-header__main">
+      <a class="city-brand" href="index.html" aria-label="Development projects map home">
+        <img
+          src="https://www.pompanobeachfl.gov/pompanobeachfl/assets/images/sitewide/COPB_Logo.png"
+          alt="City of Pompano Beach Logo"
+          class="city-brand__logo"
+        />
+        <span class="city-brand__divider" aria-hidden="true"></span>
+        <span class="city-brand__welcome">
+          <span>Welcome to</span>
+          <strong>Pompano Beach</strong>
+        </span>
+      </a>
+      <nav class="city-nav" aria-label="Maintenance navigation">
+        <a href="index.html">Map</a>
+      </nav>
+    </div>
+    <div class="city-dept-bar" aria-label="Printable project book breadcrumb">
+      <div class="city-dept-bar__inner">
+        <a href="index.html">Development Projects Map</a>
+        <span class="city-dept-bar__separator" aria-hidden="true">/</span>
+        <span>Printable Project Book</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="book-builder no-print">
+    <h1>Create a Printable Project Book</h1>
+    <p class="book-builder__intro">
+      Select the projects to include, then generate a print-ready book styled like the Building Department's
+      official "New Projects" report. Once it's generated, use your browser's Print dialog (Ctrl/Cmd+P) to save it
+      as a PDF or send it to a printer.
+    </p>
+
+    <section class="book-options" aria-label="Book options">
+      <div class="field-group">
+        <label for="bookTitle">Report title</label>
+        <input id="bookTitle" type="text" value="New Projects within the City of Pompano Beach" />
+      </div>
+      <div class="field-group">
+        <label for="bookSubtitle">Subtitle</label>
+        <input id="bookSubtitle" type="text" placeholder="e.g. Winter 2026" />
+      </div>
+      <div class="field-group checkboxes">
+        <label><input type="checkbox" id="includeCover" checked /> Cover page</label>
+        <label><input type="checkbox" id="includeToc" checked /> Table of contents</label>
+        <label><input type="checkbox" id="includeSummary" checked /> Summary &amp; valuation tables</label>
+        <label><input type="checkbox" id="groupByDistrict" checked /> Separate by commissioner district</label>
+      </div>
+      <p class="field-hint" id="groupByDistrictHint">Each district gets its own section, opening on a fresh page. Uncheck to list every selected project together in one alphabetical sequence instead.</p>
+    </section>
+
+    <section class="book-picker" aria-label="Project selection">
+      <div class="book-picker__toolbar">
+        <input id="pickerSearch" type="search" placeholder="Filter by name, address, developer…" />
+        <div class="book-picker__bulk">
+          <button type="button" id="selectAllVisible">Select all shown</button>
+          <button type="button" id="selectNone">Clear all shown</button>
+        </div>
+        <div class="book-picker__status-filters" id="statusFilters"></div>
+      </div>
+      <p class="book-picker__count" id="selectionCount">Loading projects…</p>
+      <div class="book-picker__districts" id="districtGroups" aria-busy="true">Loading projects…</div>
+    </section>
+
+    <div class="book-generate-bar">
+      <button type="button" id="generateBookBtn" class="primary-action" disabled>Generate book</button>
+      <button type="button" id="printBookBtn" class="primary-action" hidden>Print / Save as PDF</button>
+    </div>
+  </main>
+
+  <section id="bookPreview" class="book-preview" hidden aria-label="Generated book preview"></section>
+
+  <script src="book.js"></script>
+</body>
+</html>

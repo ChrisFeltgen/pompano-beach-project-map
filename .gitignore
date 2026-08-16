@@ -2,4 +2,12 @@
 # to api/auth-config.json and fill in real values; that file stays local/server-only.
 api/auth-config.json
 
+# Live project data, edited on the server through the admin panel. Deploys
+# here are a manual FTP/SFTP upload, not a git pull — if this stayed
+# tracked, re-uploading the repo's committed copy during a code deploy
+# would silently overwrite whatever staff saved live since the last sync.
+# Keep working with your local copy for dev/testing; just never let it be
+# part of what you upload when pushing a code change to the host.
+projects.json
+
 .DS_Store

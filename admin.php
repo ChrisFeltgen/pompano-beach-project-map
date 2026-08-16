@@ -57,6 +57,7 @@ $currentAdminUser = require_admin_auth();
           <div class="admin-actions">
             <button id="reloadProjects" type="button">Reload</button>
             <button id="exportProjects" type="button">Export JSON</button>
+            <a id="printBookLink" href="print.html" target="_blank" rel="noopener">Print / Export Book</a>
             <button id="saveProjects" type="button" class="primary-action">Save Changes</button>
           </div>
 

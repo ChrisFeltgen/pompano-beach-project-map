@@ -30,6 +30,8 @@ const PROJECT_FIELDS = [
   { key: 'description', label: 'Description', fallback: '', type: 'textarea', wide: true, section: 'Project Details' },
   { key: 'completion', label: 'Est. Completion', fallback: '', section: 'Project Details' },
   { key: 'valuation', label: 'Valuation', fallback: '', section: 'Project Details' },
+  { key: 'pzProject', label: 'PZ Project #', fallback: '', section: 'Project Details' },
+  { key: 'buildingPermit', label: 'Building Permit #', fallback: '', section: 'Project Details' },
   { key: 'lastUpdated', label: 'Last Updated', fallback: '', type: 'date', section: 'Project Details' },
 
   { key: 'address', label: 'Address', fallback: '', section: 'Location' },
@@ -885,6 +887,8 @@ function getFilteredProjectIndexes() {
         project.status,
         project.developer,
         project.contractor,
+        project.pzProject,
+        project.buildingPermit,
         project.district,
         project.plannerName,
         project.plannerPhone,

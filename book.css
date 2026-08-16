@@ -1,0 +1,733 @@
+/* Printable Project Book — styles for print.html.
+   Loaded alongside styles.css (for the shared city header + design tokens).
+   Everything under .book-page uses fixed px sizing deliberately, so the
+   on-screen preview and the printed/PDF output stay pixel-for-pixel the
+   same regardless of styles.css's global `html { font-size: 80% }`. */
+
+@media screen {
+  /* styles.css sets `body { height: 100vh; overflow: hidden; display: flex }`
+     for index.html/admin.php's app-shell layout, where the map fills the
+     viewport and only the sidebar scrolls internally. print.html isn't that
+     kind of page — it's a normal tall document (picker UI, then a whole
+     stack of 11in book pages) — so undo those three and let the page
+     scroll normally. */
+  body {
+    display: block;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+    background: #dde3e7;
+  }
+}
+
+/* ---------- Builder (screen-only picker UI) ---------- */
+
+.book-builder {
+  /* styles.css also has a bare `main { display: grid; overflow: hidden;
+     flex: 1 1 auto; min-height: 0; ... }` rule for index.html's two-column
+     map layout. Since print.html's picker is also a <main>, it inherits
+     that (wrong) layout too — this class-selector block overrides it back
+     to a normal single-column, unclipped, scrollable document flow. */
+  display: block;
+  overflow: visible;
+  flex: none;
+  min-height: auto;
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 28px 20px 60px;
+}
+
+.book-builder h1 {
+  margin: 0 0 6px;
+  color: var(--city-blue, #2A768D);
+  font-size: 1.6rem;
+}
+
+.book-builder__intro {
+  margin: 0 0 24px;
+  color: var(--muted, #4b5563);
+  max-width: 68ch;
+  line-height: 1.5;
+}
+
+.book-options,
+.book-picker {
+  background: #fff;
+  border: 1px solid var(--border, #d7e2e6);
+  border-radius: 8px;
+  padding: 18px 20px;
+  margin-bottom: 18px;
+}
+
+.book-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 20px;
+}
+
+.field-group {
+  display: grid;
+  gap: 4px;
+}
+
+.field-group label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--city-blue, #2A768D);
+}
+
+.field-group input[type="text"] {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--border, #d7e2e6);
+  border-radius: 4px;
+  font: inherit;
+}
+
+.field-group.checkboxes {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  align-items: center;
+}
+
+.field-group.checkboxes label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text, #1f2933);
+  font-weight: 500;
+}
+
+.field-hint {
+  grid-column: 1 / -1;
+  margin: -6px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted, #4b5563);
+}
+
+.book-picker__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+#pickerSearch {
+  flex: 1 1 220px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--border, #d7e2e6);
+  border-radius: 4px;
+  font: inherit;
+}
+
+.book-picker__status-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1 1 100%;
+}
+
+.status-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border, #d7e2e6);
+  background: #fff;
+  color: var(--muted, #4b5563);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.status-chip.active {
+  color: #fff;
+  background: var(--chip-color, var(--city-blue, #2A768D));
+  border-color: var(--chip-color, var(--city-blue, #2A768D));
+}
+
+.book-picker__bulk {
+  display: flex;
+  gap: 8px;
+}
+
+.book-picker__bulk button {
+  padding: 8px 12px;
+  font-size: 0.82rem;
+}
+
+.book-picker__count {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--city-blue, #2A768D);
+}
+
+.book-picker__districts {
+  display: grid;
+  gap: 16px;
+}
+
+.picker-group {
+  border-top: 1px solid var(--border, #d7e2e6);
+  padding-top: 12px;
+}
+
+.picker-group:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.picker-group__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.picker-group__header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text, #1f2933);
+}
+
+.picker-group__count {
+  font-weight: 500;
+  color: var(--muted, #4b5563);
+  font-size: 0.82rem;
+}
+
+.picker-group__bulk {
+  display: flex;
+  gap: 6px;
+}
+
+.picker-group__bulk button {
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  min-height: auto;
+}
+
+.picker-group__empty {
+  margin: 4px 0 0;
+  color: var(--muted, #4b5563);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.picker-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 7px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.picker-row:hover {
+  background: var(--accent-soft, rgba(42, 118, 141, 0.12));
+}
+
+.picker-row input[type="checkbox"] {
+  margin-top: 3px;
+  flex: 0 0 auto;
+}
+
+.picker-row__status {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--status-color, #6b7280);
+}
+
+.picker-row__body {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.picker-row__title {
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+.picker-row__meta {
+  font-size: 0.78rem;
+  color: var(--muted, #4b5563);
+}
+
+.picker-empty {
+  color: var(--muted, #4b5563);
+  font-style: italic;
+}
+
+.book-generate-bar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  position: sticky;
+  bottom: 0;
+  background: #dde3e7;
+  padding: 14px 0 4px;
+}
+
+#printBookBtn {
+  /* position: sticky (like the rest of .book-generate-bar) only stays
+     pinned while its own containing block — .book-builder, which ends
+     right where the generated book's pages begin — is still in view.
+     Scroll into #bookPreview past that point and a sticky button would
+     already be gone. position: fixed anchors to the viewport itself
+     instead, so it stays on screen the whole time the user is paging
+     through the generated book, not just while still inside the picker. */
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 40;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.35);
+}
+
+.primary-action {
+  border-color: var(--city-blue, #2A768D);
+  background: var(--city-blue, #2A768D);
+  color: #fff;
+}
+
+.primary-action:hover,
+.primary-action:focus-visible {
+  background: #245f73;
+  color: #fff;
+}
+
+/* ---------- Book preview / print output ---------- */
+
+#bookPreview {
+  padding: 8px 0 80px;
+}
+
+.book-page {
+  /* Deliberately NOT position: relative with a position: absolute footer —
+     a box that's a positioning context for absolutely-positioned
+     descendants is exactly what makes Chrome treat it as a single
+     unbreakable unit for pagination, forcing all of its content onto one
+     physical page no matter how tall it grows (this is what broke the
+     table of contents). Flex + the footer's `margin-top: auto` below gets
+     the same "pinned to the bottom" look without that trap: verified with
+     a headless print test that an intentionally-overlong flex page still
+     fragments cleanly across multiple physical pages instead of being
+     clipped to one, while a normal page's footer sits flush at the
+     bottom, because flex `margin: auto` only absorbs leftover space —
+     once content already fills or exceeds the page it has none left to
+     absorb, and the footer just follows the content like any other block. */
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 816px;
+  min-height: 1056px;
+  margin: 0 auto 32px;
+  padding: 56px 56px 40px;
+  background: #fff;
+  box-shadow: 0 6px 28px rgba(15, 23, 42, 0.22);
+  border: 2px solid #d7e2e6;
+  /* Inner "nested frame" line, reminiscent of the source book's border —
+     an outline instead of an absolutely-positioned ::before, since outlines
+     are paint-only and never participate in box layout/fragmentation.
+     Negative offset draws it inset from the border rather than around it. */
+  outline: 1px solid color-mix(in srgb, var(--city-blue, #2A768D) 35%, transparent);
+  outline-offset: -16px;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #1f2933;
+}
+
+.book-page__kicker {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--city-green, #66A785);
+}
+
+.book-page__title {
+  margin: 4px 0 0;
+  font-size: 26px;
+  line-height: 1.2;
+  color: var(--city-blue, #2A768D);
+  font-weight: 800;
+}
+
+.book-stepper {
+  display: flex;
+  margin: 20px 0 24px;
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.book-stepper__step {
+  flex: 1;
+  position: relative;
+  padding: 10px 14px 10px 26px;
+  margin-right: -14px;
+  background: #d7e2e6;
+  color: #4b5563;
+  text-align: center;
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%, 14px 50%);
+}
+
+.book-stepper__step:first-child {
+  padding-left: 14px;
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%);
+}
+
+.book-stepper__step:last-child {
+  margin-right: 0;
+}
+
+.book-stepper__step.is-complete {
+  background: var(--city-green, #66A785);
+  color: #fff;
+}
+
+.book-stepper__step.is-current {
+  /* #ffb715 is the "Pompano yellow" already used elsewhere on the site
+     (styles.css's focus-ring outline). White text on it only reaches
+     ~1.7:1 contrast — a clear legibility fail for small bold text — so
+     rather than mute the brand color itself, the text goes dark instead:
+     dark ink (#1f2933, matching --city-ink) on this yellow measures
+     ~8.5:1, well past WCAG AAA. */
+  background: #ffb715;
+  color: #1f2933;
+}
+
+.book-status-pill {
+  display: inline-block;
+  margin: 20px 0 24px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #fff;
+}
+
+.book-status-pill--withdrawn {
+  background: #7c3aed;
+}
+
+.book-status-pill--expired {
+  background: #dc2626;
+}
+
+.book-field {
+  margin-bottom: 16px;
+}
+
+.book-field__label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--city-blue, #2A768D);
+  margin-bottom: 3px;
+}
+
+.book-field__value {
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.book-photo {
+  margin: 6px 0 20px;
+  text-align: center;
+}
+
+.book-photo img {
+  max-width: 100%;
+  max-height: 260px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #d7e2e6;
+}
+
+.book-fields-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 28px;
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.book-page__footer {
+  /* Normal flow, not position: absolute — see the note on .book-page for
+     why. `margin-top: auto` (this relies on .book-page being a flex
+     column) absorbs whatever space is left below the content, pinning
+     the footer flush to the bottom on a normal, single-page-worth of
+     content — but only up to however much space actually exists, so an
+     overlong page's footer just follows its content instead of the
+     footer getting clipped or forced to overlap it. */
+  margin-top: auto;
+  padding-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 10px;
+  color: #6b7280;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Blank page (duplex/booklet spacer — see .book-page--blank in book.js) */
+
+.book-page--blank {
+  border-color: transparent;
+  outline-color: transparent;
+  align-items: center;
+  justify-content: center;
+}
+
+.book-blank-note {
+  font-size: 11px;
+  font-style: italic;
+  color: #9ca3af;
+}
+
+/* Cover page */
+
+.book-page--cover .book-cover {
+  min-height: 900px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+}
+
+.book-cover__logo {
+  height: 90px;
+  width: auto;
+  margin-bottom: 16px;
+}
+
+.book-cover h1 {
+  margin: 0;
+  max-width: 540px;
+  font-size: 30px;
+  line-height: 1.25;
+  color: var(--city-blue, #2A768D);
+  font-weight: 800;
+}
+
+.book-cover__dept {
+  margin-top: 14px;
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--city-green, #66A785);
+  font-weight: 700;
+}
+
+.book-cover__subtitle {
+  margin-top: 22px;
+  font-size: 22px;
+  font-style: italic;
+  color: #4b5563;
+}
+
+.book-cover__meta {
+  margin-top: 32px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* District divider */
+
+.book-page--divider .book-divider {
+  min-height: 900px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+}
+
+.book-divider__eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--city-green, #66A785);
+  font-weight: 700;
+}
+
+.book-divider h1 {
+  margin: 6px 0 0;
+  font-size: 36px;
+  color: var(--city-blue, #2A768D);
+  font-weight: 800;
+}
+
+.book-divider p {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+/* Table of contents */
+
+.book-page--toc .book-page__title {
+  margin-bottom: 24px;
+}
+
+.toc-list {
+  font-size: 13px;
+  /* Explicit rather than the browser's implied default so it's a known,
+     fixed quantity — book.js estimates each row's rendered height (to
+     decide how many rows fit per printed page) using this exact value. */
+  line-height: 1.3;
+}
+
+.toc-district {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 18px;
+  font-weight: 800;
+  color: var(--city-blue, #2A768D);
+}
+
+.toc-district:first-child {
+  margin-top: 0;
+}
+
+.toc-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 7px;
+  padding-left: 16px;
+}
+
+.toc-dots {
+  flex: 1;
+  border-bottom: 1px dotted #9ca3af;
+  margin-bottom: 4px;
+}
+
+.toc-page {
+  flex: 0 0 auto;
+  color: #4b5563;
+}
+
+/* Summary tables */
+
+.book-summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-top: 10px;
+}
+
+.book-summary-table th,
+.book-summary-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.book-summary-table th {
+  background: #eef4f6;
+  color: var(--city-blue, #2A768D);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.book-summary-table td.num,
+.book-summary-table th.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.book-summary-table tfoot td {
+  font-weight: 800;
+  border-top: 2px solid var(--city-blue, #2A768D);
+  border-bottom: none;
+}
+
+.book-summary-note {
+  margin-top: 16px;
+  font-size: 11px;
+  color: #6b7280;
+  max-width: 60ch;
+}
+
+/* ---------- Print ---------- */
+
+@page {
+  size: letter;
+  margin: 0;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  /* styles.css's base (unscoped) `html, body { height: 100%; }` and
+     `body { height: 100vh; overflow: hidden; }` rules apply to every media
+     type, print included — the @media screen block above only undoes them
+     for on-screen viewing. Left as-is here, that fixed/clipped body height
+     traps the paginated book content inside one page box's worth of
+     space instead of letting it flow across pages, so print (and "Save as
+     PDF") only ever produces the first page. Force it back to normal,
+     unclipped document flow for print too. */
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  #bookPreview {
+    padding: 0;
+  }
+
+  .book-page {
+    /* `vh` is unreliable inside paginated (@page) rendering — it isn't
+       guaranteed to resolve against the physical page-box height, which is
+       exactly what left a blank gap between the page content/border and
+       the true bottom edge of the printed sheet. `816px`/`1056px` (the
+       base .book-page rule, unchanged here on purpose) are CSS absolute
+       units — 96px = 1in always, independent of viewport — so they equal
+       8.5in x 11in exactly, matching `@page { size: letter }` on every
+       side, top to bottom included. */
+    margin: 0;
+    box-shadow: none;
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .book-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+}

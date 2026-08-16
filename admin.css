@@ -52,8 +52,28 @@ main.admin-shell {
   gap: 8px;
 }
 
-.admin-actions #saveProjects {
+.admin-actions #saveProjects,
+.admin-actions #printBookLink {
   grid-column: 1 / -1;
+}
+
+.admin-actions #printBookLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px 14px;
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.18s ease;
+}
+
+.admin-actions #printBookLink:hover,
+.admin-actions #printBookLink:focus-visible {
+  border-color: var(--accent);
+  color: var(--city-blue);
 }
 
 .editor-actions {
