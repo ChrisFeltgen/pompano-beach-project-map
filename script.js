@@ -1,18 +1,11 @@
 let projects = [];
 let projectListStatus = 'loading'; // 'loading' | 'ready' | 'error'
 
-const statusColors = {
-  proposed: '#6b7280',
-  review: '#2563eb',
-  planapproved: '#2563eb',
-  permit: '#f97316',
-  permitissued: '#f97316',
-  construction: '#eab308',
-  completed: '#10b981',
-  expired: '#dc2626',
-  withdrawn: '#7c3aed',
-  unknown: '#6b7280',
-};
+// statusColors, statusLabels, and the data-normalization helpers below
+// (normalizeProjectStatus, displayValue, fetchProjectsData, ...) live in
+// project-data.js, loaded before this file — shared with book.js so the
+// map and the printable book can't drift out of sync on what a status
+// means or how project data gets parsed.
 
 const statusIcons = {
   proposed: 'images/icons/Icon-Proposed.png',
@@ -30,64 +23,6 @@ const statusIcons = {
 const markerIconSize = [32, 45];
 const markerIconAnchor = [markerIconSize[0] / 2, markerIconSize[1]];
 const markerPopupAnchor = [0, -(markerIconSize[1] - 3)];
-
-const statusLabels = {
-  proposed: 'Proposed',
-  review: 'Site Plan Review',
-  planapproved: 'Site Plan Approved',
-  permit: 'Building Permit Review',
-  permitissued: 'Permit Issued',
-  construction: 'Under Construction',
-  completed: 'Completed',
-  expired: 'Expired',
-  withdrawn: 'Withdrawn',
-  unknown: 'Unknown',
-};
-
-const DEFAULT_PROJECT_PHOTO = 'images/project-placeholder.png';
-const PROJECT_API_CANDIDATES = ['api/projects.php', 'api/projects'];
-
-function normalizeProjectStatus(status) {
-  const value = String(status || '').trim().toLowerCase();
-  if (!value) return 'unknown';
-  if (value === 'proposed') return 'proposed';
-  // Check the more specific "approved/issued" phrasing before the broader
-  // "site plan"/"permit" substring matches below, since e.g. "Site Plan
-  // Approved" would otherwise also match `includes('site plan')`.
-  if (value.includes('site plan') && value.includes('approv')) return 'planapproved';
-  if (value === 'review' || value.includes('site plan')) return 'review';
-  if (value.includes('permit') && (value.includes('issu') || value.includes('approv'))) return 'permitissued';
-  if (value === 'permit' || value.includes('building permit')) return 'permit';
-  if (value === 'construction' || value.includes('under construction')) return 'construction';
-  if (value === 'completed' || value === 'complete') return 'completed';
-  if (value === 'expired') return 'expired';
-  if (value === 'withdrawn') return 'withdrawn';
-  return 'unknown';
-}
-
-function getProjectStatusLabel(status, normalizedStatus) {
-  const value = String(status || '').trim();
-  if (value && value.toLowerCase() !== 'unknown') return value;
-  return statusLabels[normalizedStatus] || statusLabels.unknown;
-}
-
-function hasValue(value) {
-  return value !== null && value !== undefined && String(value).trim() !== '';
-}
-
-function displayValue(value, fallback = 'TBD') {
-  return hasValue(value) ? String(value).trim() : fallback;
-}
-
-function resolveAssetUrl(assetPath) {
-  const path = hasValue(assetPath) ? String(assetPath).trim() : DEFAULT_PROJECT_PHOTO;
-
-  try {
-    return new URL(path, window.location.href).toString();
-  } catch {
-    return path;
-  }
-}
 
 function setContactLink(el, value, hrefFor) {
   if (!el) return;
@@ -113,11 +48,6 @@ function formatLastUpdated(value) {
   if (Number.isNaN(date.getTime())) return '';
 
   return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-}
-
-function normalizeProjectDistrict(district) {
-  const match = String(district || '').match(/[1-5]/);
-  return match ? match[0] : '';
 }
 
 function getProjectPopupText(project) {
@@ -731,8 +661,6 @@ const mapSizeToggle = document.getElementById('mapSizeToggle');
 const activeStatusFilters = new Set();
 const activeDistrictFilters = new Set();
 
-const HIDDEN_BY_DEFAULT_STATUSES = ['expired', 'withdrawn'];
-
 function syncFilterMenuState() {
   if (filterMenu) filterMenu.open = false;
 }
@@ -824,26 +752,6 @@ function normalizeProjectCoords(project) {
   const lat = toCoordNumber(project.lat);
   const lng = toCoordNumber(project.lng);
   return Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : null;
-}
-
-async function fetchProjectsData() {
-  for (const path of PROJECT_API_CANDIDATES) {
-    try {
-      const apiResponse = await fetch(new URL(path, window.location.href), { cache: 'no-store' });
-      if (!apiResponse.ok) {
-        throw new Error(`API returned ${apiResponse.status}`);
-      }
-      return await apiResponse.json();
-    } catch {
-      continue;
-    }
-  }
-
-  const staticResponse = await fetch('projects.json', { cache: 'no-store' });
-  if (!staticResponse.ok) {
-    throw new Error(`Failed to load projects.json: ${staticResponse.status}`);
-  }
-  return staticResponse.json();
 }
 
 fetchProjectsData()

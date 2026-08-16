@@ -1,43 +1,14 @@
 // Printable Project Book — powers print.html.
 //
 // Deliberately independent of script.js: it doesn't need the map, Leaflet,
-// or any of the sidebar/info-panel DOM, so it re-declares the small set of
-// data helpers (status normalization, district parsing, the same
-// api/projects.php -> api/projects -> projects.json fetch fallback) instead
-// of pulling script.js in and fighting its map-init side effects.
+// or any of the sidebar/info-panel DOM, so it doesn't load that file at
+// all. The status labels/colors, HIDDEN_BY_DEFAULT_STATUSES, and the data-
+// normalization helpers (normalizeProjectStatus, displayValue,
+// fetchProjectsData, ...) it does share with script.js live in
+// project-data.js, loaded before this file in print.html — kept in one
+// place so the map and the book can't drift out of sync on either.
 (function () {
   'use strict';
-
-  const DEFAULT_PROJECT_PHOTO = 'images/project-placeholder.png';
-  const PROJECT_API_CANDIDATES = ['api/projects.php', 'api/projects'];
-
-  const STATUS_LABELS = {
-    proposed: 'Proposed',
-    review: 'Site Plan Review',
-    planapproved: 'Site Plan Approved',
-    permit: 'Building Permit Review',
-    permitissued: 'Permit Issued',
-    construction: 'Under Construction',
-    completed: 'Completed',
-    expired: 'Expired',
-    withdrawn: 'Withdrawn',
-    unknown: 'Unknown',
-  };
-
-  const STATUS_COLORS = {
-    proposed: '#6b7280',
-    review: '#2563eb',
-    planapproved: '#2563eb',
-    permit: '#f97316',
-    permitissued: '#f97316',
-    construction: '#eab308',
-    completed: '#10b981',
-    expired: '#dc2626',
-    withdrawn: '#7c3aed',
-    unknown: '#6b7280',
-  };
-
-  const HIDDEN_BY_DEFAULT_STATUSES = ['expired', 'withdrawn'];
 
   // The book's 4-stage progress bar. Every tracked status collapses onto one
   // of these 4 stages (Withdrawn/Expired get a terminal badge instead — see
@@ -76,66 +47,9 @@
     __all: 'All Selected Projects', // used only when "separate by district" is off
   };
 
-  // ---------- data helpers (mirrors script.js) ----------
-
-  function hasValue(value) {
-    return value !== null && value !== undefined && String(value).trim() !== '';
-  }
-
-  function displayValue(value, fallback = 'TBD') {
-    return hasValue(value) ? String(value).trim() : fallback;
-  }
-
-  function normalizeProjectStatus(status) {
-    const value = String(status || '').trim().toLowerCase();
-    if (!value) return 'unknown';
-    if (value === 'proposed') return 'proposed';
-    if (value.includes('site plan') && value.includes('approv')) return 'planapproved';
-    if (value === 'review' || value.includes('site plan')) return 'review';
-    if (value.includes('permit') && (value.includes('issu') || value.includes('approv'))) return 'permitissued';
-    if (value === 'permit' || value.includes('building permit')) return 'permit';
-    if (value === 'construction' || value.includes('under construction')) return 'construction';
-    if (value === 'completed' || value === 'complete') return 'completed';
-    if (value === 'expired') return 'expired';
-    if (value === 'withdrawn') return 'withdrawn';
-    return 'unknown';
-  }
-
-  function getProjectStatusLabel(status, normalizedStatus) {
-    const value = String(status || '').trim();
-    if (value && value.toLowerCase() !== 'unknown') return value;
-    return STATUS_LABELS[normalizedStatus] || STATUS_LABELS.unknown;
-  }
-
-  function normalizeProjectDistrict(district) {
-    const match = String(district || '').match(/[1-5]/);
-    return match ? match[0] : '';
-  }
-
-  function resolveAssetUrl(assetPath) {
-    const path = hasValue(assetPath) ? String(assetPath).trim() : DEFAULT_PROJECT_PHOTO;
-    try {
-      return new URL(path, window.location.href).toString();
-    } catch {
-      return path;
-    }
-  }
-
-  async function fetchProjectsData() {
-    for (const path of PROJECT_API_CANDIDATES) {
-      try {
-        const apiResponse = await fetch(new URL(path, window.location.href), { cache: 'no-store' });
-        if (!apiResponse.ok) throw new Error(`API returned ${apiResponse.status}`);
-        return await apiResponse.json();
-      } catch {
-        continue;
-      }
-    }
-
-    const staticResponse = await fetch('projects.json', { cache: 'no-store' });
-    if (!staticResponse.ok) throw new Error(`Failed to load projects.json: ${staticResponse.status}`);
-    return staticResponse.json();
-  }
+  // hasValue, displayValue, normalizeProjectStatus, getProjectStatusLabel,
+  // normalizeProjectDistrict, resolveAssetUrl, and fetchProjectsData all
+  // come from project-data.js (loaded before this file in print.html).
 
   function parseValuation(value) {
     if (!hasValue(value)) return null;
@@ -169,8 +83,8 @@
   // ---------- state ----------
 
   let allProjects = [];
+  let projectsById = new Map();
   const selected = new Set(); // project.__id values
-  const visibleStatuses = new Set(Object.keys(STATUS_LABELS).filter((key) => !HIDDEN_BY_DEFAULT_STATUSES.includes(key)));
 
   // ---------- DOM refs ----------
 
@@ -214,30 +128,65 @@
     if (countEl) countEl.textContent = `(${checked.length}/${boxes.length} shown selected)`;
   }
 
+  // "full" = every project with this status is selected, "none" = none are,
+  // "partial" = some are. Status chips are a bulk select/deselect action
+  // driven by this, not a view filter — the picker list always shows every
+  // project that matches the search box, regardless of status.
+  function getStatusSelectionState(key) {
+    const projectsOfStatus = allProjects.filter((project) => project.status === key);
+    if (!projectsOfStatus.length) return 'none';
+    const selectedCount = projectsOfStatus.filter((project) => selected.has(project.__id)).length;
+    if (selectedCount === 0) return 'none';
+    if (selectedCount === projectsOfStatus.length) return 'full';
+    return 'partial';
+  }
+
+  function updateStatusChipVisuals() {
+    statusFiltersEl.querySelectorAll('.status-chip[data-status]').forEach((chip) => {
+      const state = getStatusSelectionState(chip.dataset.status);
+      chip.classList.toggle('is-full', state === 'full');
+      chip.classList.toggle('is-partial', state === 'partial');
+      chip.setAttribute('aria-pressed', String(state === 'full'));
+    });
+  }
+
   function updateSelectionCount() {
     selectionCountEl.textContent = `${selected.size} of ${allProjects.length} projects selected for the book.`;
     generateBtn.disabled = selected.size === 0;
+    updateStatusChipVisuals();
   }
 
   function renderStatusFilters() {
     statusFiltersEl.innerHTML = '';
-    Object.keys(STATUS_LABELS).forEach((key) => {
+    Object.keys(statusLabels).forEach((key) => {
+      const projectsOfStatus = allProjects.filter((project) => project.status === key);
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'status-chip';
-      button.style.setProperty('--chip-color', STATUS_COLORS[key]);
-      button.textContent = STATUS_LABELS[key];
-      const isActive = visibleStatuses.has(key);
-      button.classList.toggle('active', isActive);
-      button.setAttribute('aria-pressed', String(isActive));
+      button.dataset.status = key;
+      button.style.setProperty('--chip-color', statusColors[key]);
+      button.textContent = `${statusLabels[key]} (${projectsOfStatus.length})`;
+      button.disabled = projectsOfStatus.length === 0;
+      button.title = `Select or deselect every "${statusLabels[key]}" project`;
       button.addEventListener('click', () => {
-        if (visibleStatuses.has(key)) visibleStatuses.delete(key);
-        else visibleStatuses.add(key);
-        renderStatusFilters();
-        renderPicker();
+        // Clicking moves toward "select all" unless every one of this
+        // status is already selected, in which case it clears them —
+        // the same click behavior as a native tri-state checkbox.
+        const shouldSelect = getStatusSelectionState(key) !== 'full';
+        projectsOfStatus.forEach((project) => {
+          if (shouldSelect) selected.add(project.__id);
+          else selected.delete(project.__id);
+        });
+        districtGroupsEl.querySelectorAll('input[type="checkbox"][data-id]').forEach((box) => {
+          const project = projectsById.get(Number(box.dataset.id));
+          if (project && project.status === key) box.checked = shouldSelect;
+        });
+        districtGroupsEl.querySelectorAll('.picker-group').forEach(updateGroupCount);
+        updateSelectionCount();
       });
       statusFiltersEl.appendChild(button);
     });
+    updateStatusChipVisuals();
   }
 
   function renderPicker() {
@@ -249,7 +198,7 @@
 
     groups.forEach((projectsInGroup, districtKey) => {
       if (!projectsInGroup.length) return;
-      const visibleRows = projectsInGroup.filter((project) => visibleStatuses.has(project.status) && rowMatchesSearch(project, query));
+      const visibleRows = projectsInGroup.filter((project) => rowMatchesSearch(project, query));
 
       const groupEl = el('section', 'picker-group');
 
@@ -265,7 +214,7 @@
 
       if (!visibleRows.length) {
         const empty = el('p', 'picker-group__empty');
-        empty.textContent = 'No projects in this section match the current search/status filters.';
+        empty.textContent = 'No projects in this section match your search.';
         groupEl.appendChild(empty);
       } else {
         anyVisible = true;
@@ -274,7 +223,7 @@
           const item = document.createElement('li');
           const inputId = `pick-${project.__id}`;
           item.innerHTML = `
-            <label class="picker-row" for="${inputId}" style="--status-color:${STATUS_COLORS[project.status] || STATUS_COLORS.unknown}">
+            <label class="picker-row" for="${inputId}" style="--status-color:${statusColors[project.status] || statusColors.unknown}">
               <input type="checkbox" id="${inputId}" data-id="${project.__id}" ${selected.has(project.__id) ? 'checked' : ''} />
               <span class="picker-row__status" aria-hidden="true"></span>
               <span class="picker-row__body">
@@ -316,7 +265,7 @@
     });
 
     if (!anyVisible) {
-      districtGroupsEl.innerHTML = '<p class="picker-empty">No projects match the current search/status filters.</p>';
+      districtGroupsEl.innerHTML = '<p class="picker-empty">No projects match your search.</p>';
     }
 
     updateSelectionCount();
@@ -345,9 +294,8 @@
   // ---------- book plan (page numbering) ----------
 
   function getSelectedProjects() {
-    const byId = new Map(allProjects.map((project) => [project.__id, project]));
     return [...selected]
-      .map((id) => byId.get(id))
+      .map((id) => projectsById.get(id))
       .filter(Boolean)
       .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' }));
   }
@@ -569,7 +517,12 @@
         label = labelPair.complete;
       } else if (index === info.stage) {
         if (info.subState === 'complete') {
-          cls += ' is-complete';
+          // The final box ("Complete" itself, only reached when the
+          // project's actual status is Completed) gets its own distinct
+          // color instead of blending in as just another green "done"
+          // step — a finish-line marker, not one more intermediate stage.
+          const isFinalStage = index === BOOK_STAGE_LABELS.length - 1;
+          cls += isFinalStage ? ' is-finished' : ' is-complete';
           label = labelPair.complete;
         } else {
           cls += ' is-current';
@@ -653,24 +606,21 @@
     pageEl.innerHTML = `
       <div class="book-page__kicker">${escapeHtml(districtLabel)}</div>
       <h1 class="book-page__title">${escapeHtml(project.title)}</h1>
+      <div class="book-page__address">${escapeHtml(displayValue(project.address))}</div>
       ${buildStepper(project)}
-      <div class="book-field book-field--wide">
-        <div class="book-field__label">Address</div>
-        <div class="book-field__value">${escapeHtml(displayValue(project.address))}</div>
-      </div>
       <div class="book-field book-field--wide">
         <div class="book-field__label">Description</div>
         <div class="book-field__value">${escapeHtml(displayValue(project.description))}</div>
       </div>
       <div class="book-photo">
-        <img src="${photoUrl}" alt="" loading="eager" onerror="this.onerror=null;this.src='${fallbackUrl}';" />
+        <img src="${photoUrl}" alt="${escapeHtml(project.title)} rendering" loading="eager" onerror="this.onerror=null;this.src='${fallbackUrl}';" />
       </div>
       <div class="book-fields-grid">
         <div class="book-field"><div class="book-field__label">Est. Completion</div><div class="book-field__value">${escapeHtml(displayValue(project.completion))}</div></div>
         <div class="book-field"><div class="book-field__label">Valuation</div><div class="book-field__value">${escapeHtml(displayValue(project.valuation))}</div></div>
         <div class="book-field"><div class="book-field__label">Developer</div><div class="book-field__value">${escapeHtml(displayValue(project.developer))}</div></div>
         <div class="book-field"><div class="book-field__label">Prime Contractor</div><div class="book-field__value">${escapeHtml(displayValue(project.contractor))}</div></div>
-        <div class="book-field"><div class="book-field__label">PZ Project #</div><div class="book-field__value">${escapeHtml(displayValue(project.pzProject))}</div></div>
+        <div class="book-field"><div class="book-field__label">Planning Project #</div><div class="book-field__value">${escapeHtml(displayValue(project.pzProject))}</div></div>
         <div class="book-field"><div class="book-field__label">Building Permit #</div><div class="book-field__value">${escapeHtml(displayValue(project.buildingPermit))}</div></div>
       </div>
       ${buildFooter(footerLeft, pageNum, totalPages)}
@@ -727,7 +677,53 @@
 
   // ---------- render ----------
 
-  function renderBook(plan, opts) {
+  const PROJECT_PAGE_BUDGET_PX = 1056; // one full page (matches .book-page's height in book.css)
+  const PROJECT_PHOTO_DEFAULT_MAX_HEIGHT_PX = 380; // must match .book-photo img's max-height in book.css
+  const PROJECT_PHOTO_MIN_HEIGHT_PX = 150; // floor — below this, stop shrinking and accept the page spilling onto a 2nd sheet
+  const PROJECT_PHOTO_SHRINK_STEP_PX = 20;
+
+  // The bigger default photo size (see book.css) means a project with an
+  // unusually long description, on top of a tall photo, can now push a
+  // page past one sheet. Rather than leave that to chance, every generated
+  // project page gets measured after its photo has actually loaded, and
+  // any that run long have just their own photo shrunk (not the text, not
+  // the layout) in small steps until the page fits back on one page, or
+  // until the photo hits a floor small enough that shrinking further isn't
+  // worth it — at that point the page is left to spill onto a 2nd sheet,
+  // same safe (non-clipping) fallback as everywhere else in the book.
+  async function fitOverflowingProjectPhotos() {
+    const projectPages = Array.from(bookPreviewEl.querySelectorAll('.book-page--project'));
+    const images = projectPages
+      .map((pageEl) => pageEl.querySelector('.book-photo img'))
+      .filter(Boolean);
+
+    // An <img> with no explicit width/height reports 0 height until it has
+    // actually loaded, so measuring pages before every photo is in would
+    // make every page look like it already fits.
+    await Promise.all(images.map((img) => (
+      img.complete
+        ? Promise.resolve()
+        : new Promise((resolve) => {
+          img.addEventListener('load', resolve, { once: true });
+          img.addEventListener('error', resolve, { once: true });
+        })
+    )));
+
+    projectPages.forEach((pageEl) => {
+      const img = pageEl.querySelector('.book-photo img');
+      if (!img) return;
+      let maxHeight = PROJECT_PHOTO_DEFAULT_MAX_HEIGHT_PX;
+      while (
+        pageEl.getBoundingClientRect().height > PROJECT_PAGE_BUDGET_PX
+        && maxHeight > PROJECT_PHOTO_MIN_HEIGHT_PX
+      ) {
+        maxHeight = Math.max(maxHeight - PROJECT_PHOTO_SHRINK_STEP_PX, PROJECT_PHOTO_MIN_HEIGHT_PX);
+        img.style.maxHeight = `${maxHeight}px`;
+      }
+    });
+  }
+
+  async function renderBook(plan, opts) {
     bookPreviewEl.innerHTML = '';
 
     if (plan.cover) {
@@ -770,11 +766,19 @@
     }
 
     bookPreviewEl.hidden = false;
-    printBtn.hidden = false;
     bookPreviewEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Printing before photos are fit could ship a page that still spills
+    // onto a 2nd sheet even though the shrink pass would have prevented
+    // it — so the Print button only appears once fitting is actually done.
+    await fitOverflowingProjectPhotos();
+    printBtn.hidden = false;
   }
 
-  generateBtn.addEventListener('click', () => {
+  // Shared by the "Generate book" button and the quick-print tiers (0/1),
+  // which call this automatically once project data loads instead of
+  // waiting for a click — see QUICK_MODE below.
+  function generateBookFromCurrentUI() {
     const selectedProjects = getSelectedProjects();
     if (!selectedProjects.length) return;
 
@@ -788,11 +792,44 @@
       totalSelected: selectedProjects.length,
     };
 
+    printBtn.hidden = true;
+    generateBtn.disabled = true;
     const plan = computeBookPlan(selectedProjects, opts);
-    renderBook(plan, opts);
-  });
+    renderBook(plan, opts).finally(() => {
+      generateBtn.disabled = false;
+    });
+  }
 
+  generateBtn.addEventListener('click', generateBookFromCurrentUI);
   printBtn.addEventListener('click', () => window.print());
+
+  // ---------- quick-print tiers ----------
+  // 0 (no ?quickmode param): quick, no way to reach the picker at all —
+  //    the link meant for public sharing.
+  // 1 (?quickmode=1): quick, but with a "Customize this book" escape
+  //    hatch — cover title/subtitle stay locked even once revealed.
+  //    Linked from the public map.
+  // 2 (?quickmode=2): today's original behavior — picker shown first,
+  //    nothing generated until the user clicks Generate. Linked from
+  //    the admin panel.
+  const QUICK_MODE = document.documentElement.dataset.quickMode || '0';
+
+  if (QUICK_MODE === '1') {
+    bookTitleEl.readOnly = true;
+    bookSubtitleEl.readOnly = true;
+
+    const revealBtn = document.getElementById('revealCustomizeBtn');
+    const customizeBar = document.getElementById('quickCustomizeBar');
+    revealBtn?.addEventListener('click', () => {
+      document.documentElement.classList.remove('builder-hidden');
+      // Not the `hidden` attribute — book.css's html[data-quick-mode="1"]
+      // .quick-customize-bar rule has higher specificity than the
+      // browser's default [hidden] { display: none }, so it would win and
+      // the bar would stay visible. An inline style always wins instead.
+      if (customizeBar) customizeBar.style.display = 'none';
+      document.querySelector('.book-builder')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 
   // ---------- load ----------
 
@@ -808,6 +845,8 @@
         }))
         .sort((a, b) => displayValue(a.title, '').localeCompare(displayValue(b.title, ''), undefined, { numeric: true, sensitivity: 'base' }));
 
+      projectsById = new Map(allProjects.map((project) => [project.__id, project]));
+
       // Default selection: the projects that would actually appear in a
       // book like the source document — assigned to one of the five
       // commissioner districts, and not Expired/Withdrawn. Everything else
@@ -820,6 +859,10 @@
 
       renderStatusFilters();
       renderPicker();
+
+      if (QUICK_MODE === '0' || QUICK_MODE === '1') {
+        generateBookFromCurrentUI();
+      }
     })
     .catch((error) => {
       console.error(error);

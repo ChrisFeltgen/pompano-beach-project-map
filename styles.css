@@ -285,21 +285,27 @@ body {
    keyboard/focus reachable and brightens on hover/focus so it's never
    truly invisible, just low-priority. Icon-only (a gear), so there's no
    label text for a curious visitor to read in the first place. */
-.city-dept-bar__staff-link {
-  display: inline-flex;
+.city-dept-bar__icons {
+  display: flex;
   align-items: center;
+  gap: 0.85rem;
   margin-left: auto;
   flex-shrink: 0;
+}
+
+.city-dept-bar__icon-link {
+  display: inline-flex;
+  align-items: center;
   opacity: 0.45;
 }
 
-.city-dept-bar__staff-link svg {
+.city-dept-bar__icon-link svg {
   width: 15px;
   height: 15px;
 }
 
-.city-dept-bar__staff-link:hover,
-.city-dept-bar__staff-link:focus-visible {
+.city-dept-bar__icon-link:hover,
+.city-dept-bar__icon-link:focus-visible {
   opacity: 1;
   text-decoration: none !important;
 }
@@ -850,6 +856,11 @@ main {
   border-top: 1px solid var(--border);
 }
 
+.permit-grid {
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
 .planner-contact {
   display: flex;
   flex-wrap: wrap;
@@ -950,31 +961,6 @@ main {
   color: var(--text);
   font: inherit;
   text-overflow: ellipsis;
-}
-
-.print-book-link {
-  justify-self: end;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 2px;
-  color: var(--muted);
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-}
-
-.print-book-link svg {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 auto;
-}
-
-.print-book-link:hover,
-.print-book-link:focus-visible {
-  color: var(--city-blue);
-  border-bottom-color: var(--city-blue);
 }
 
 .search-control button {
@@ -1148,6 +1134,12 @@ button.active {
   margin: 0;
   padding: 0;
   display: grid;
+  /* Doesn't currently sit in a flex:1-stretched container the way
+     admin.css's .admin-project-list does, so this doesn't visibly bug out
+     today — but it's the exact same missing align-content (defaults to
+     `normal`, which grid resolves as `stretch`), and the two lists are
+     meant to behave identically, so it gets the same preventative fix. */
+  align-content: start;
   gap: 10px;
 }
 

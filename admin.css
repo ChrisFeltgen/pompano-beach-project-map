@@ -44,35 +44,78 @@ main.admin-shell {
   font-size: 0.88rem;
 }
 
-/* Reload/Export share a row; Save Changes — the primary action — gets its
-   own full-width row below so it reads as the one that matters. */
-.admin-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+/* Save Changes is the one action worth a full-width, high-emphasis button —
+   everything else in the toolbar (search+add, reload/export/print) is
+   secondary and stays visually lighter so the sidebar reads as one compact
+   block instead of a stack of equally-loud buttons. */
+.admin-save-action {
+  width: 100%;
+}
+
+.admin-search-row {
+  display: flex;
   gap: 8px;
+  align-items: stretch;
 }
 
-.admin-actions #saveProjects,
-.admin-actions #printBookLink {
-  grid-column: 1 / -1;
+.admin-search-row input {
+  flex: 1 1 auto;
 }
 
-.admin-actions #printBookLink {
+.admin-icon-button {
+  flex: 0 0 auto;
+  width: 42px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+
+.admin-icon-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Reload/Export JSON/Print Book are infrequent, lower-stakes actions — one
+   slim row of understated (not full button-weight) controls instead of
+   three of admin.css's normal bordered buttons stacked up. */
+.admin-actions-secondary {
+  display: flex;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.admin-actions-secondary button,
+.admin-actions-secondary a {
+  flex: 1 1 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 12px 14px;
-  color: var(--text);
+  min-height: 36px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 0.82rem;
   font-weight: 600;
+  text-align: center;
   text-decoration: none;
-  transition: all 0.18s ease;
+  white-space: nowrap;
 }
 
-.admin-actions #printBookLink:hover,
-.admin-actions #printBookLink:focus-visible {
-  border-color: var(--accent);
+.admin-actions-secondary button + button,
+.admin-actions-secondary button + a,
+.admin-actions-secondary a + a {
+  border-left: 1px solid var(--border);
+}
+
+.admin-actions-secondary button:hover,
+.admin-actions-secondary a:hover,
+.admin-actions-secondary button:focus-visible,
+.admin-actions-secondary a:focus-visible {
+  background: var(--accent-soft);
   color: var(--city-blue);
 }
 
@@ -140,6 +183,12 @@ main.admin-shell {
 
 .admin-project-list {
   display: grid;
+  /* align-content defaults to `normal`, which a grid container resolves as
+     `stretch` — with few rows inside this flex:1 (tall, mostly-empty-when-
+     filtered) container, that stretches each auto-sized row to fill an
+     even share of all the leftover height instead of leaving them at their
+     natural size, packed at the top. */
+  align-content: start;
   gap: 10px;
   min-height: 0;
   margin: 0;

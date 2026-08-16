@@ -107,12 +107,57 @@
   color: var(--muted, #4b5563);
 }
 
+/* Quick-print tiers (see the inline script at the top of print.html):
+   the builder is hidden by default for quickmode 0/1 so a shared link
+   opens straight into a finished book, not the picker. */
+html.builder-hidden .book-builder {
+  display: none;
+}
+
+.quick-customize-bar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 12px 20px;
+  background: #fff;
+  border: 1px solid var(--border, #d7e2e6);
+  border-radius: 8px;
+  font-size: 0.88rem;
+  color: var(--muted, #4b5563);
+}
+
+/* Only tier 1 gets the "customize instead" escape hatch — tier 0 (the
+   public link) has no way to reach the picker at all, and tier 2 shows
+   the picker outright, so there's nothing to offer an escape hatch to. */
+html[data-quick-mode="1"] .quick-customize-bar {
+  display: flex;
+  margin-top: 20px;
+}
+
+.quick-lock-hint {
+  display: none;
+}
+
+html[data-quick-mode="1"] .quick-lock-hint {
+  display: block;
+}
+
 .book-picker__toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.book-picker__search-row {
   display: flex;
   flex-wrap: wrap;
   gap: 10px 14px;
   align-items: center;
-  margin-bottom: 10px;
 }
 
 #pickerSearch {
@@ -124,11 +169,30 @@
   font: inherit;
 }
 
+/* Its own row, separate from the search row above — search narrows which
+   rows are visible in the list below; this instead bulk selects/deselects
+   every project of a status directly, regardless of what search shows. */
+.book-picker__status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 6px;
+  align-items: center;
+  padding-top: 8px;
+  border-top: 1px solid var(--border, #d7e2e6);
+}
+
+.book-picker__status-label {
+  flex: 0 0 auto;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted, #4b5563);
+}
+
 .book-picker__status-filters {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  flex: 1 1 100%;
+  flex: 1 1 auto;
 }
 
 .status-chip {
@@ -142,9 +206,23 @@
   cursor: pointer;
 }
 
-.status-chip.active {
+.status-chip:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Bulk select/deselect by status, not a view filter — tri-state like a
+   native indeterminate checkbox: solid = every project with this status is
+   in the book, tinted = some are, plain = none are. */
+.status-chip.is-full {
   color: #fff;
   background: var(--chip-color, var(--city-blue, #2A768D));
+  border-color: var(--chip-color, var(--city-blue, #2A768D));
+}
+
+.status-chip.is-partial {
+  color: var(--chip-color, var(--city-blue, #2A768D));
+  background: color-mix(in srgb, var(--chip-color, var(--city-blue, #2A768D)) 16%, white);
   border-color: var(--chip-color, var(--city-blue, #2A768D));
 }
 
@@ -286,13 +364,15 @@
 }
 
 #printBookBtn {
-  /* position: sticky (like the rest of .book-generate-bar) only stays
-     pinned while its own containing block — .book-builder, which ends
-     right where the generated book's pages begin — is still in view.
-     Scroll into #bookPreview past that point and a sticky button would
-     already be gone. position: fixed anchors to the viewport itself
-     instead, so it stays on screen the whole time the user is paging
-     through the generated book, not just while still inside the picker. */
+  /* Lives as a sibling of .book-builder in the markup (not nested inside
+     it) — quickmode 0/1 hide .book-builder entirely via display: none,
+     which would hide this button too if it were a descendant, regardless
+     of its own position value. It also used to be position: sticky like
+     the rest of .book-generate-bar, but sticky only stays pinned while
+     its containing block is in view — scroll into #bookPreview, past
+     where .book-builder ends, and a sticky button would already be gone.
+     position: fixed anchors to the viewport itself instead, so it stays
+     on screen the whole time the user is paging through the book. */
   position: fixed;
   right: 24px;
   bottom: 24px;
@@ -338,7 +418,7 @@
   width: 816px;
   min-height: 1056px;
   margin: 0 auto 32px;
-  padding: 56px 56px 40px;
+  padding: 34px 56px 40px;
   background: #fff;
   box-shadow: 0 6px 28px rgba(15, 23, 42, 0.22);
   border: 2px solid #d7e2e6;
@@ -368,6 +448,16 @@
   font-weight: 800;
 }
 
+/* A location subtitle under the title, not a labeled "Address" field —
+   matches how the public map's info panel already shows a project's
+   address (styles.css's #panelProjectAddress), and reads more naturally
+   than lumping one short line in as its own full-width block up top. */
+.book-page__address {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
 .book-stepper {
   display: flex;
   margin: 20px 0 24px;
@@ -378,12 +468,21 @@
 }
 
 .book-stepper__step {
+  /* Real, already-established city brand colors rather than custom-picked
+     hex values: --city-green (used site-wide, e.g. styles.css's map/button
+     accents) for complete, and #ffb715 — the exact "Pompano yellow" already
+     used for styles.css's focus-ring outline — for current. One dark text
+     color (#1f2933, --city-ink) across every state, since that was the
+     actual point of this whole exercise (a single color reads consistently
+     regardless of which state a step is in): ~11.2:1 on the upcoming gray,
+     ~8.5:1 on the Pompano yellow, ~5.2:1 on city-green — all comfortably
+     past WCAG AA (4.5:1). */
   flex: 1;
   position: relative;
   padding: 10px 14px 10px 26px;
   margin-right: -14px;
   background: #d7e2e6;
-  color: #4b5563;
+  color: #1f2933;
   text-align: center;
   clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%, 14px 50%);
 }
@@ -399,18 +498,20 @@
 
 .book-stepper__step.is-complete {
   background: var(--city-green, #66A785);
-  color: #fff;
 }
 
 .book-stepper__step.is-current {
-  /* #ffb715 is the "Pompano yellow" already used elsewhere on the site
-     (styles.css's focus-ring outline). White text on it only reaches
-     ~1.7:1 contrast — a clear legibility fail for small bold text — so
-     rather than mute the brand color itself, the text goes dark instead:
-     dark ink (#1f2933, matching --city-ink) on this yellow measures
-     ~8.5:1, well past WCAG AAA. */
   background: #ffb715;
-  color: #1f2933;
+}
+
+.book-stepper__step.is-finished {
+  /* city-blue is dark enough that the shared dark-ink text (#1f2933) only
+     reaches ~2.9:1 on it — under WCAG AA — so this one step is a
+     deliberate exception with white text instead (~5.2:1), matching that
+     it's meant to read as a distinct finish-line marker rather than one
+     more interchangeable "done" step. */
+  background: var(--city-blue, #2A768D);
+  color: #fff;
 }
 
 .book-status-pill {
@@ -458,8 +559,17 @@
 }
 
 .book-photo img {
+  /* This is the default ceiling — book.js measures each generated page
+     after its photo loads and, if a page runs long (an unusually long
+     description, mainly), shrinks that specific photo's max-height via an
+     inline style override until the page fits back on one sheet, down to
+     PROJECT_PHOTO_MIN_HEIGHT_PX. A square or portrait photo is
+     height-constrained (this is the dimension that actually limits it, so
+     it's the one worth raising) where a landscape one is normally
+     width-constrained by max-width instead, so this mainly benefits non-
+     landscape photos rather than making every photo dramatically bigger. */
   max-width: 100%;
-  max-height: 260px;
+  max-height: 380px;
   object-fit: cover;
   border-radius: 6px;
   border: 1px solid #d7e2e6;

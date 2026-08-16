@@ -7,6 +7,23 @@
   <link rel="shortcut icon" type="image/x-icon" href="https://www.pompanobeachfl.gov/pompanobeachfl/assets/images/favicon.ico?v=2" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="book.css" />
+  <script>
+    // Runs synchronously, before the builder UI below is ever painted, so
+    // there's no flash of the picker on a link meant to open straight into
+    // a finished book. Three tiers, chosen by ?quickmode=:
+    //   (absent) -> 0: quick, no way to customize at all — the public link.
+    //   1 -> quick, but with a "Customize this book" escape hatch (cover
+    //        title/subtitle stay locked even then) — linked from the map.
+    //   2 -> today's original behavior, picker shown first, nothing
+    //        auto-generated — linked from the admin panel.
+    (function () {
+      var raw = new URLSearchParams(window.location.search).get('quickmode');
+      var level = raw === '1' ? '1' : raw === '2' ? '2' : '0';
+      var html = document.documentElement;
+      html.dataset.quickMode = level;
+      if (level !== '2') html.classList.add('builder-hidden');
+    })();
+  </script>
 </head>
 <body>
   <header class="city-site-header no-print">
@@ -36,6 +53,11 @@
     </div>
   </header>
 
+  <div class="quick-customize-bar no-print" id="quickCustomizeBar">
+    <span>Want to change what's included in this book?</span>
+    <button type="button" id="revealCustomizeBtn">Customize this book</button>
+  </div>
+
   <main class="book-builder no-print">
     <h1>Create a Printable Project Book</h1>
     <p class="book-builder__intro">
@@ -53,6 +75,7 @@
         <label for="bookSubtitle">Subtitle</label>
         <input id="bookSubtitle" type="text" placeholder="e.g. Winter 2026" />
       </div>
+      <p class="field-hint quick-lock-hint">Title and subtitle are fixed for this quick-print link.</p>
       <div class="field-group checkboxes">
         <label><input type="checkbox" id="includeCover" checked /> Cover page</label>
         <label><input type="checkbox" id="includeToc" checked /> Table of contents</label>
@@ -64,12 +87,17 @@
 
     <section class="book-picker" aria-label="Project selection">
       <div class="book-picker__toolbar">
-        <input id="pickerSearch" type="search" placeholder="Filter by name, address, developer…" />
-        <div class="book-picker__bulk">
-          <button type="button" id="selectAllVisible">Select all shown</button>
-          <button type="button" id="selectNone">Clear all shown</button>
+        <div class="book-picker__search-row">
+          <input id="pickerSearch" type="search" placeholder="Filter by name, address, developer…" />
+          <div class="book-picker__bulk">
+            <button type="button" id="selectAllVisible">Select all shown</button>
+            <button type="button" id="selectNone">Clear all shown</button>
+          </div>
         </div>
-        <div class="book-picker__status-filters" id="statusFilters"></div>
+        <div class="book-picker__status-row">
+          <span class="book-picker__status-label">Select by status:</span>
+          <div class="book-picker__status-filters" id="statusFilters"></div>
+        </div>
       </div>
       <p class="book-picker__count" id="selectionCount">Loading projects…</p>
       <div class="book-picker__districts" id="districtGroups" aria-busy="true">Loading projects…</div>
@@ -77,12 +105,19 @@
 
     <div class="book-generate-bar">
       <button type="button" id="generateBookBtn" class="primary-action" disabled>Generate book</button>
-      <button type="button" id="printBookBtn" class="primary-action" hidden>Print / Save as PDF</button>
     </div>
   </main>
 
+  <!-- A sibling of .book-builder, not a child of it — position: fixed only
+       controls where a rendered element sits, it can't override a
+       display: none ancestor, and .book-builder is exactly that (hidden)
+       for quickmode 0/1 until "Customize" is clicked. Living outside it
+       is what lets this button show up regardless of that state. -->
+  <button type="button" id="printBookBtn" class="primary-action no-print" hidden>Print / Save as PDF</button>
+
   <section id="bookPreview" class="book-preview" hidden aria-label="Generated book preview"></section>
 
+  <script src="project-data.js"></script>
   <script src="book.js"></script>
 </body>
 </html>

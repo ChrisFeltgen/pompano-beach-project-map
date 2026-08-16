@@ -54,16 +54,24 @@ $currentAdminUser = require_admin_auth();
           <h1>Project Data Maintenance</h1>
           <p id="adminStatus">Loading projects...</p>
 
-          <div class="admin-actions">
-            <button id="reloadProjects" type="button">Reload</button>
-            <button id="exportProjects" type="button">Export JSON</button>
-            <a id="printBookLink" href="print.html" target="_blank" rel="noopener">Print / Export Book</a>
-            <button id="saveProjects" type="button" class="primary-action">Save Changes</button>
+          <button id="saveProjects" type="button" class="primary-action admin-save-action">Save Changes</button>
+
+          <div class="admin-search-row">
+            <label class="sr-only" for="projectSearch">Search projects</label>
+            <input id="projectSearch" type="search" placeholder="Search projects..." />
+            <button id="addProject" type="button" class="admin-icon-button" aria-label="Add project" title="Add project">
+              <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                <line x1="10" y1="4" x2="10" y2="16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                <line x1="4" y1="10" x2="16" y2="10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+              </svg>
+            </button>
           </div>
 
-          <label class="sr-only" for="projectSearch">Search projects</label>
-          <input id="projectSearch" type="search" placeholder="Search projects..." />
-          <button id="addProject" type="button" class="primary-action">Add Project</button>
+          <div class="admin-actions-secondary">
+            <button id="reloadProjects" type="button">Reload</button>
+            <button id="exportProjects" type="button">Export JSON</button>
+            <a id="printBookLink" href="print.html?quickmode=2" target="_blank" rel="noopener">Print Book</a>
+          </div>
         </section>
 
         <div class="project-count" id="projectCount"></div>
