@@ -26,6 +26,14 @@ const PROJECT_FIELDS = [
       'unknown',
     ],
   },
+  {
+    key: 'featured',
+    label: 'Featured — show on the public map & book automatically',
+    fallback: 'true',
+    type: 'checkbox',
+    section: 'Project Details',
+    hint: 'Turn this off to leave the project out of the map and print book by default — it stays available through the map’s filter menu and the book’s project picker.',
+  },
   { key: 'summary', label: 'Summary', fallback: '', wide: true, section: 'Project Details' },
   { key: 'description', label: 'Description', fallback: '', type: 'textarea', wide: true, section: 'Project Details' },
   { key: 'completion', label: 'Est. Completion', fallback: '', section: 'Project Details' },
@@ -911,6 +919,7 @@ function renderProjectList() {
     const project = state.projects[index];
     const normalizedStatus = normalizeProjectStatus(project.status);
     const statusLabel = getProjectStatusLabel(project.status, normalizedStatus);
+    const isFeatured = parseCheckboxValue(project.featured, 'true');
     const item = document.createElement('li');
     const button = document.createElement('button');
     button.type = 'button';
@@ -925,6 +934,7 @@ function renderProjectList() {
         <span class="project-meta">
           <span>${project.address || 'TBD'}</span>
           <span class="project-status-meta">${statusLabel}</span>
+          ${isFeatured ? '' : '<span class="project-not-featured-badge" title="Not featured — left off the map and book by default">Not Featured</span>'}
         </span>
       </span>
     `;
@@ -944,9 +954,53 @@ function renderProjectList() {
   }
 }
 
+// String storage mirrors every other field (normalizeProject stringifies
+// everything), so a checkbox field's value on the project object is the
+// string "true"/"false" rather than a real boolean — this reads that back,
+// falling back to the field's default when the key is missing entirely.
+function parseCheckboxValue(rawValue, fallback) {
+  const source = hasValue(rawValue) ? rawValue : fallback;
+  const normalized = String(source).trim().toLowerCase();
+  return normalized === 'true' || normalized === '1' || normalized === 'yes';
+}
+
 function createField(project, field) {
   const group = document.createElement('div');
   group.className = `field-group${field.wide ? ' field-group--wide' : ''}`;
+  const inputId = `field-${field.key}`;
+
+  if (field.type === 'checkbox') {
+    const row = document.createElement('label');
+    row.className = 'field-checkbox-row';
+    row.setAttribute('for', inputId);
+
+    const control = document.createElement('input');
+    control.type = 'checkbox';
+    control.id = inputId;
+    control.name = field.key;
+    control.checked = parseCheckboxValue(project[field.key], field.fallback);
+
+    control.addEventListener('change', () => {
+      state.projects[state.selectedIndex][field.key] = control.checked ? 'true' : 'false';
+      markDirty();
+      renderProjectList();
+    });
+
+    const text = document.createElement('span');
+    text.textContent = field.label;
+
+    row.append(control, text);
+    group.appendChild(row);
+
+    if (field.hint) {
+      const hint = document.createElement('p');
+      hint.className = 'field-hint';
+      hint.textContent = field.hint;
+      group.appendChild(hint);
+    }
+
+    return group;
+  }
 
   if (field.type === 'map-preview') {
     const label = document.createElement('label');
@@ -980,7 +1034,6 @@ function createField(project, field) {
   }
 
   const label = document.createElement('label');
-  const inputId = `field-${field.key}`;
   label.setAttribute('for', inputId);
   label.textContent = field.label;
 

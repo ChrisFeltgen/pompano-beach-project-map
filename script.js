@@ -655,11 +655,13 @@ const filterMenu = document.getElementById('filterMenu');
 const currentFilterSummary = document.getElementById('currentFilterSummary');
 const filterActiveBadge = document.getElementById('filterActiveBadge');
 const districtFilterButtons = document.querySelectorAll('[data-district-filter]');
+const showNonFeaturedFilter = document.getElementById('showNonFeaturedFilter');
 const mapLegend = document.querySelector('.map-legend');
 const mapWrapper = document.querySelector('.map-wrapper');
 const mapSizeToggle = document.getElementById('mapSizeToggle');
 const activeStatusFilters = new Set();
 const activeDistrictFilters = new Set();
+let showNonFeatured = false;
 
 function syncFilterMenuState() {
   if (filterMenu) filterMenu.open = false;
@@ -833,6 +835,7 @@ function renderProjectList(filteredProjects) {
         <span class="project-meta">
           <span>${project.address || 'TBD'}</span>
           <span class="project-status-meta">${project.statusLabel || statusLabels.unknown}</span>
+          ${isProjectFeatured(project) ? '' : '<span class="project-not-featured-badge" title="Not featured — shown because non-featured projects are included">Not Featured</span>'}
         </span>
       </span>
     `;
@@ -874,11 +877,12 @@ function getDistrictSummaryLabel() {
 
 function updateFilterSummary() {
   if (currentFilterSummary) {
-    currentFilterSummary.textContent = `${getStatusSummaryLabel()} · ${getDistrictSummaryLabel()}`;
+    currentFilterSummary.textContent = `${getStatusSummaryLabel()} · ${getDistrictSummaryLabel()}`
+      + (showNonFeatured ? ' · Including non-featured' : '');
   }
 
   if (filterActiveBadge) {
-    const activeCount = activeStatusFilters.size + activeDistrictFilters.size;
+    const activeCount = activeStatusFilters.size + activeDistrictFilters.size + (showNonFeatured ? 1 : 0);
     filterActiveBadge.textContent = String(activeCount);
     filterActiveBadge.hidden = activeCount === 0;
   }
@@ -913,8 +917,9 @@ function applyFilter() {
       ? !HIDDEN_BY_DEFAULT_STATUSES.includes(project.status)
       : activeStatusFilters.has(project.status);
     const matchesDistrict = activeDistrictFilters.size === 0 || activeDistrictFilters.has(project.districtNumber);
+    const matchesFeatured = showNonFeatured || isProjectFeatured(project);
     const matchesSearch = !query || getSearchText(project).includes(query);
-    return matchesStatus && matchesDistrict && matchesSearch;
+    return matchesStatus && matchesDistrict && matchesFeatured && matchesSearch;
   });
 
   filtered.forEach((project) => {
@@ -959,12 +964,21 @@ districtFilterButtons.forEach((button) => {
   });
 });
 
+if (showNonFeaturedFilter) {
+  showNonFeaturedFilter.addEventListener('change', () => {
+    showNonFeatured = showNonFeaturedFilter.checked;
+    applyFilter();
+  });
+}
+
 projectSearch.addEventListener('input', () => applyFilter());
 
 clearProjectSearch.addEventListener('click', () => {
   projectSearch.value = '';
   activeStatusFilters.clear();
   activeDistrictFilters.clear();
+  showNonFeatured = false;
+  if (showNonFeaturedFilter) showNonFeaturedFilter.checked = false;
   applyFilter();
   projectSearch.focus();
 });

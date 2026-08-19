@@ -92,10 +92,16 @@
   const selectionCountEl = document.getElementById('selectionCount');
   const pickerSearchEl = document.getElementById('pickerSearch');
   const statusFiltersEl = document.getElementById('statusFilters');
+  const featuredFiltersEl = document.getElementById('featuredFilters');
   const selectAllVisibleBtn = document.getElementById('selectAllVisible');
   const selectNoneBtn = document.getElementById('selectNone');
   const generateBtn = document.getElementById('generateBookBtn');
   const printBtn = document.getElementById('printBookBtn');
+  // Also its initial label in print.html, kept in sync with that markup so
+  // there's no flash-to-different-text if JS reads the button before this
+  // runs.
+  const PRINT_BTN_READY_LABEL = 'Print / Save as PDF';
+  const PRINT_BTN_LOADING_LABEL = 'Preparing book…';
   const bookTitleEl = document.getElementById('bookTitle');
   const bookSubtitleEl = document.getElementById('bookSubtitle');
   const includeCoverEl = document.getElementById('includeCover');
@@ -150,10 +156,70 @@
     });
   }
 
+  // Same tri-state bulk select/deselect as the status chips above, but
+  // grouped by the Featured flag instead of status — lets the book builder
+  // pull in every non-featured project (or drop every featured one) in a
+  // single click, without hunting through the district lists by hand.
+  function getProjectsByFeatured(isFeaturedGroup) {
+    return allProjects.filter((project) => isProjectFeatured(project) === isFeaturedGroup);
+  }
+
+  function getFeaturedSelectionState(isFeaturedGroup) {
+    const projectsInGroup = getProjectsByFeatured(isFeaturedGroup);
+    if (!projectsInGroup.length) return 'none';
+    const selectedCount = projectsInGroup.filter((project) => selected.has(project.__id)).length;
+    if (selectedCount === 0) return 'none';
+    if (selectedCount === projectsInGroup.length) return 'full';
+    return 'partial';
+  }
+
+  function updateFeaturedChipVisuals() {
+    featuredFiltersEl.querySelectorAll('.status-chip[data-featured]').forEach((chip) => {
+      const state = getFeaturedSelectionState(chip.dataset.featured === 'yes');
+      chip.classList.toggle('is-full', state === 'full');
+      chip.classList.toggle('is-partial', state === 'partial');
+      chip.setAttribute('aria-pressed', String(state === 'full'));
+    });
+  }
+
+  function renderFeaturedFilters() {
+    featuredFiltersEl.innerHTML = '';
+    [
+      { key: 'yes', label: 'Featured', color: statusColors.completed, isFeaturedGroup: true },
+      { key: 'no', label: 'Not Featured', color: statusColors.unknown, isFeaturedGroup: false },
+    ].forEach(({ key, label, color, isFeaturedGroup }) => {
+      const projectsInGroup = getProjectsByFeatured(isFeaturedGroup);
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'status-chip';
+      button.dataset.featured = key;
+      button.style.setProperty('--chip-color', color);
+      button.textContent = `${label} (${projectsInGroup.length})`;
+      button.disabled = projectsInGroup.length === 0;
+      button.title = `Select or deselect every "${label}" project`;
+      button.addEventListener('click', () => {
+        const shouldSelect = getFeaturedSelectionState(isFeaturedGroup) !== 'full';
+        projectsInGroup.forEach((project) => {
+          if (shouldSelect) selected.add(project.__id);
+          else selected.delete(project.__id);
+        });
+        districtGroupsEl.querySelectorAll('input[type="checkbox"][data-id]').forEach((box) => {
+          const project = projectsById.get(Number(box.dataset.id));
+          if (project && isProjectFeatured(project) === isFeaturedGroup) box.checked = shouldSelect;
+        });
+        districtGroupsEl.querySelectorAll('.picker-group').forEach(updateGroupCount);
+        updateSelectionCount();
+      });
+      featuredFiltersEl.appendChild(button);
+    });
+    updateFeaturedChipVisuals();
+  }
+
   function updateSelectionCount() {
     selectionCountEl.textContent = `${selected.size} of ${allProjects.length} projects selected for the book.`;
     generateBtn.disabled = selected.size === 0;
     updateStatusChipVisuals();
+    updateFeaturedChipVisuals();
   }
 
   function renderStatusFilters() {
@@ -228,7 +294,7 @@
               <span class="picker-row__status" aria-hidden="true"></span>
               <span class="picker-row__body">
                 <span class="picker-row__title">${escapeHtml(project.title)}</span>
-                <span class="picker-row__meta">${escapeHtml(displayValue(project.address, ''))}${project.address ? ' · ' : ''}${escapeHtml(project.statusLabel)}</span>
+                <span class="picker-row__meta">${escapeHtml(displayValue(project.address, ''))}${project.address ? ' · ' : ''}${escapeHtml(project.statusLabel)}${isProjectFeatured(project) ? '' : ' · Not Featured'}</span>
               </span>
             </label>
           `;
@@ -770,9 +836,12 @@
 
     // Printing before photos are fit could ship a page that still spills
     // onto a 2nd sheet even though the shrink pass would have prevented
-    // it — so the Print button only appears once fitting is actually done.
+    // it — so the Print button stays disabled, labeled as still preparing
+    // (see generateBookFromCurrentUI below), until fitting is actually done.
     await fitOverflowingProjectPhotos();
-    printBtn.hidden = false;
+    printBtn.disabled = false;
+    printBtn.textContent = PRINT_BTN_READY_LABEL;
+    printBtn.setAttribute('aria-busy', 'false');
   }
 
   // Shared by the "Generate book" button and the quick-print tiers (0/1),
@@ -792,7 +861,14 @@
       totalSelected: selectedProjects.length,
     };
 
-    printBtn.hidden = true;
+    // Show the Print button right away, in a disabled "still working" state,
+    // instead of leaving it invisible until the whole book — including every
+    // project photo — has finished loading. That left the button looking
+    // like it hadn't appeared yet rather than like a book was on its way.
+    printBtn.hidden = false;
+    printBtn.disabled = true;
+    printBtn.textContent = PRINT_BTN_LOADING_LABEL;
+    printBtn.setAttribute('aria-busy', 'true');
     generateBtn.disabled = true;
     const plan = computeBookPlan(selectedProjects, opts);
     renderBook(plan, opts).finally(() => {
@@ -849,15 +925,17 @@
 
       // Default selection: the projects that would actually appear in a
       // book like the source document — assigned to one of the five
-      // commissioner districts, and not Expired/Withdrawn. Everything else
-      // (unassigned "Other Projects") is still pickable, just opt-in.
+      // commissioner districts, not Expired/Withdrawn, and marked Featured.
+      // Everything else (unassigned "Other Projects", non-featured
+      // projects) is still pickable, just opt-in.
       allProjects.forEach((project) => {
-        if (project.districtNumber && !HIDDEN_BY_DEFAULT_STATUSES.includes(project.status)) {
+        if (project.districtNumber && !HIDDEN_BY_DEFAULT_STATUSES.includes(project.status) && isProjectFeatured(project)) {
           selected.add(project.__id);
         }
       });
 
       renderStatusFilters();
+      renderFeaturedFilters();
       renderPicker();
 
       if (QUICK_MODE === '0' || QUICK_MODE === '1') {

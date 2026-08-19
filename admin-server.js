@@ -28,6 +28,7 @@ const mimeTypes = {
 const projectFields = {
   title: '',
   status: 'unknown',
+  featured: 'true',
   address: '',
   summary: '',
   description: '',

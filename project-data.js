@@ -47,6 +47,20 @@ function hasValue(value) {
   return value !== null && value !== undefined && String(value).trim() !== '';
 }
 
+// A project is "featured" unless the admin has explicitly turned it off —
+// so every project saved before this field existed (no `featured` key at
+// all) keeps showing up exactly as it always did. Featured projects appear
+// on the public map and in the print book by default; non-featured ones are
+// left out of both unless the viewer opts in via the map's filter menu or
+// the book's project picker.
+function isProjectFeatured(project) {
+  const value = project?.featured;
+  if (!hasValue(value)) return true;
+  if (typeof value === 'boolean') return value;
+  const normalized = String(value).trim().toLowerCase();
+  return normalized !== 'false' && normalized !== '0' && normalized !== 'no';
+}
+
 function displayValue(value, fallback = 'TBD') {
   return hasValue(value) ? String(value).trim() : fallback;
 }

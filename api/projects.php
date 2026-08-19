@@ -11,6 +11,7 @@ $projectsFile = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'projects.json';
 $fieldDefaults = [
     'title' => '',
     'status' => 'unknown',
+    'featured' => 'true',
     'address' => '',
     'summary' => '',
     'description' => '',

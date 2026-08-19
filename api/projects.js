@@ -5,6 +5,7 @@ const { verifyBasicAuth, hasConfiguredUsers } = require('./lib/adminUsers');
 const projectFields = {
   title: '',
   status: 'unknown',
+  featured: 'true',
   address: '',
   summary: '',
   description: '',

@@ -392,6 +392,12 @@ html[data-quick-mode="1"] .quick-lock-hint {
   color: #fff;
 }
 
+.primary-action:disabled {
+  opacity: 0.65;
+  cursor: default;
+  pointer-events: none;
+}
+
 /* ---------- Book preview / print output ---------- */
 
 #bookPreview {

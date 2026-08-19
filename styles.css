@@ -1105,6 +1105,21 @@ main {
   text-transform: uppercase;
 }
 
+.filter-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filter-checkbox-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--city-blue);
+}
+
 button {
   border: 1px solid var(--border);
   background: white;
@@ -1216,6 +1231,20 @@ button.active {
   border: 1px solid color-mix(in srgb, var(--status-color, var(--city-blue)) 40%, white);
   background: color-mix(in srgb, var(--status-color, var(--city-blue)) 14%, white);
   color: color-mix(in srgb, var(--status-color, var(--city-blue)) 72%, #111827);
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.project-not-featured-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #f3f4f6;
+  color: var(--muted);
   font-size: 0.76rem;
   font-weight: 700;
   line-height: 1.3;
